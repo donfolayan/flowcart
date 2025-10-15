@@ -14,5 +14,6 @@ app = FastAPI()
 def read_root() -> Dict[str, str]:
     return {"msg": "Application is running"}
 
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)

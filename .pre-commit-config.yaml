@@ -15,7 +15,7 @@ repos:
         args:
           - --maxfail=1
           - --disable-warnings
-          - tests/unit
+          - app/tests/unit
         additional_dependencies:
           - "fastapi"
           - "uvicorn"
