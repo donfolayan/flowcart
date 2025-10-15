@@ -11,7 +11,8 @@ RUN apt-get update && \
         gcc && \
     rm -rf /var/lib/apt/lists/*
 
-RUN uv install --no-dev
+RUN --mount=type=cache,target=/root/.local/share/uv/python \
+	uv sync --frozen --no-dev
 
 COPY . .
 
