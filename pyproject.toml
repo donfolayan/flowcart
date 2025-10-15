@@ -10,6 +10,7 @@ dependencies = [
     "coverage>=7.10.7",
     "fastapi>=0.119.0",
     "psycopg2-binary>=2.9.11",
+    "python-decouple>=3.8",
     "python-jose[cryptography]>=3.5.0",
     "ruff>=0.14.0",
     "sqlalchemy[asyncio]>=2.0.44",
