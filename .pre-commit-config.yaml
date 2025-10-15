@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.11
+    hooks:
+      - id: ruff-check
+        args: [ --fix ]
+      - id: ruff-format
+
+  - repo: https://github.com/christophmeissner/pytest-pre-commit
+    rev: 1.0.0
+    hooks:
+      - id: pytest
+        pass_filenames: false
+        always_run: true
+        args:
+          - --maxfail=1
+          - --disable-warnings
+          - tests/unit
+        additional_dependencies:
+          - "fastapi"
+          - "uvicorn"
+          - "sqlmodel"
+          - "passlib[bcrypt]"
+          - "pyjwt"
+          - "python-decouple"
+          - "asyncpg"
+          - "pytest-asyncio"
+          - "email-validator"
+          - "httpx"
+          - "aiosmtplib"
+          
