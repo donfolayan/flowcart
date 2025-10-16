@@ -18,3 +18,15 @@ dependencies = [
     "sqlmodel>=0.0.27",
     "uvicorn>=0.37.0",
 ]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint.per-file-ignores]
+"app/models/*.py" = ["E501"]  # Ignore line length in models
+"tests/*.py" = ["E501"]  # Ignore line length in tests
+"schemas/*.py" = ["E501"]  # Ignore line length in schemas
+"alembic/versions/*.py" = ["E501"]  # Ignore line length in Alembic migration scripts
+
+[tool.ruff.format]
+exclude = ["app/models/*.py"]
