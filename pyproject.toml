@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.119.0",
     "pre-commit>=4.3.0",
     "psycopg2-binary>=2.9.11",
+    "pytest>=8.4.2",
     "python-decouple>=3.8",
     "python-jose[cryptography]>=3.5.0",
     "ruff>=0.14.0",
