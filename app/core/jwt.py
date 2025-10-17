@@ -1,1 +1,24 @@
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+from typing import cast
+from decouple import config
 
+JWT_SECRET_KEY = cast(str, config("JWT_SECRET_KEY", cast=str))
+JWT_ALGORITHM = cast(str, config("JWT_ALGORITHM", cast=str))
+ACCESS_TOKEN_EXPIRE_MINUTES = cast(int, config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int))
+REFRESH_TOKEN_EXPIRE_DAYS = cast(int, config("REFRESH_TOKEN_EXPIRE_DAYS", cast=int))
+
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+
+def create_refresh_token(data: dict) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = {**data, "exp": expire, "scope": "refresh_token"}
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
