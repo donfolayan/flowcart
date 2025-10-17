@@ -65,20 +65,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
-          export PGPASSWORD=testpass123
-          ATTEMPTS=0
-          until PGPASSWORD=$PGPASSWORD psql -h localhost -U testuser -d testdb -c '\q' > /dev/null 2>&1; do
-            ATTEMPTS=$((ATTEMPTS+1))
-            echo "Postgres not ready yet (attempt $ATTEMPTS), sleeping 2s..."
-            sleep 2
-            if [ $ATTEMPTS -ge 120 ]; then
-              echo "Postgres failed to become ready after $ATTEMPTS attempts — printing logs"
-              docker ps --filter ancestor=postgres:15 --format 'table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}'
-              docker ps --filter ancestor=postgres:15 --quiet | xargs -r docker logs --tail 500
-              exit 1
-            fi
-          done
-          echo "Postgres is ready"
+          until pg_isready -h localhost -p 5432 -U testuser; do sleep 1; done
 
       - name: Run pytest (full suite)
         run: uv run pytest
