@@ -21,11 +21,12 @@ repos:
           - "uvicorn"
           - "sqlmodel"
           - "passlib[bcrypt]"
-          - "pyjwt"
+          - "python-jose"
           - "python-decouple"
           - "asyncpg"
           - "pytest-asyncio"
           - "email-validator"
           - "httpx"
           - "aiosmtplib"
+
           
