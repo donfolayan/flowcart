@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "bcrypt>=5.0.0",
     "coverage>=7.10.7",
+    "email-validator>=2.3.0",
     "fastapi>=0.119.0",
     "httpx>=0.28.1",
     "passlib[bcrypt]>=1.7.4",

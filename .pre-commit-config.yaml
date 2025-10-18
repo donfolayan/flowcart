@@ -28,5 +28,6 @@ repos:
           - "email-validator"
           - "httpx"
           - "aiosmtplib"
+          - "argon2-cffi"
 
           

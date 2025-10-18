@@ -1,7 +1,7 @@
 import re
 import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, ConfigDict
 
 
 class UserBase(BaseModel):
@@ -45,9 +45,7 @@ class UserResponse(UserBase):
     is_active: bool = True
     is_verified: bool = False
     created_at: datetime.datetime
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
