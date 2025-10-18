@@ -13,7 +13,7 @@ app = FastAPI()
 app.include_router(auth.router)
 
 
-@app.get("/", tags=["sanity"])
+@app.get("/", tags=["Sanity Check"])
 def read_root() -> Dict[str, str]:
     return {"msg": "Application is running"}
 
