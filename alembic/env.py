@@ -52,6 +52,7 @@ if config.config_file_name is not None:
 
 
 import app.models.user  # noqa: F401, E402
+import app.models.product  # noqa: F401, E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support

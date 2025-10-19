@@ -80,7 +80,7 @@ class ProductImage(Base):
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     product_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id"), nullable=False)
     variant_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("product_variants.id"), nullable=True)
-    image_url: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    image_url: Mapped[str] = mapped_column(sa.String(255), nullable=True)
     alt_text: Mapped[str] = mapped_column(sa.String(150), nullable=True)
     is_variant_image: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
 
