@@ -30,7 +30,9 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_sess
     access_token = create_access_token({"sub": str(new_user.id)})
     refresh_token = create_refresh_token({"sub": str(new_user.id)})
 
-    return Token(access_token=access_token, refresh_token=refresh_token)
+    return Token(
+        access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+    )
 
 
 @router.post("/login", response_model=Token)
@@ -50,4 +52,6 @@ async def login_user(payload: UserLogin, db: AsyncSession = Depends(get_session)
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
-    return Token(access_token=access_token, refresh_token=refresh_token)
+    return Token(
+        access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+    )
