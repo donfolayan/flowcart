@@ -1,28 +1,38 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, TYPE_CHECKING, List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Optional, Dict, TYPE_CHECKING, List
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
+
+from .media import ProductMediaResponse
 
 if TYPE_CHECKING:
     from app.schemas.product import (
         ProductResponse,
         ProductVariantResponse,
-        ProductImageResponse,
     )
 
 
 # Product Schemas
 class ProductBase(BaseModel):
-    name: str
-    slug: Optional[str] = None
-    description: Optional[str] = None
-    base_price: Optional[Decimal] = None
-    sku: Optional[str] = None
-    is_variable: bool = False
-    is_active: bool = True
-    stock: int = 0
-    attributes: Optional[dict] = None
+    name: str = Field(..., max_length=100, description="Name of the product")
+    slug: Optional[str] = Field(
+        None, max_length=120, description="URL-friendly slug for the product"
+    )
+    description: Optional[str] = Field(None, description="Description of the product")
+    base_price: Optional[Decimal] = Field(None, description="Base price of the product")
+    sku: Optional[str] = Field(None, description="Stock Keeping Unit of the product")
+    is_variable: bool = Field(
+        False, description="Indicates if the product has variants"
+    )
+    is_active: bool = Field(True, description="Indicates if the product is active")
+    stock: int = Field(0, description="Stock quantity of the product")
+    attributes: Optional[Dict[str, str]] = Field(
+        None, description="Custom attributes for the product"
+    )
+    primary_image_id: Optional[UUID] = Field(
+        None, description="ID of the primary image for the product"
+    )
 
 
 class ProductCreate(ProductBase):
@@ -34,25 +44,49 @@ class ProductUpdate(ProductBase):
 
 
 class ProductResponse(ProductBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-    images: Optional[List["ProductImageResponse"]] = None
-    variants: Optional[List["ProductVariantResponse"]] = None
+    id: UUID = Field(..., description="Unique identifier of the product")
+    created_at: datetime = Field(
+        ..., description="Timestamp when the product was created"
+    )
+    updated_at: datetime = Field(
+        ..., description="Timestamp when the product was last updated"
+    )
+    variants: Optional[List["ProductVariantResponse"]] = Field(
+        None, description="List of product variants"
+    )
+    media: Optional[List[ProductMediaResponse]] = Field(
+        None, description="List of product media", alias="media_associations"
+    )
     model_config = ConfigDict(
         from_attributes=True, json_encoders={Decimal: lambda v: str(v)}
     )
 
 
+class ProductMinimalResponse(ProductBase):
+    id: UUID = Field(..., description="Unique identifier of the product")
+    created_at: datetime = Field(
+        ..., description="Timestamp when the product was created"
+    )
+    updated_at: datetime = Field(
+        ..., description="Timestamp when the product was last updated"
+    )
+
+
 # Product Variant Schemas
 class ProductVariantBase(BaseModel):
-    product_id: UUID
-    sku: Optional[str] = None
-    name: str
-    price: Decimal
-    stock: int = 0
-    attributes: Optional[dict] = None
-    image_url: Optional[str] = None
+    base_product_id: UUID = Field(..., description="ID of the base product")
+    sku: Optional[str] = Field(
+        None, description="Stock Keeping Unit of the product variant"
+    )
+    name: str = Field(..., description="Name of the product variant")
+    price: Decimal = Field(..., description="Price of the product variant")
+    stock: int = Field(0, description="Stock quantity of the product variant")
+    attributes: Optional[Dict[str, str]] = Field(
+        None, description="Custom attributes for the product variant"
+    )
+    primary_image_id: Optional[UUID] = Field(
+        None, description="ID of the primary image for the product variant"
+    )
 
 
 class ProductVariantCreate(ProductVariantBase):
@@ -60,31 +94,14 @@ class ProductVariantCreate(ProductVariantBase):
 
 
 class ProductVariantResponse(ProductVariantBase):
-    id: UUID
-    images: Optional[List["ProductImageResponse"]] = None
+    id: UUID = Field(..., description="Unique identifier of the product variant")
+    media: Optional[List[ProductMediaResponse]] = Field(
+        None, description="List of product media", alias="media_associations"
+    )
     model_config = ConfigDict(
         from_attributes=True, json_encoders={Decimal: lambda v: str(v)}
     )
 
 
-# Product Image Schemas
-class ProductImageBase(BaseModel):
-    product_id: UUID
-    alt_text: Optional[str] = None
-    image_url: Optional[str] = None
-    is_variant_image: bool = False
-    variant_id: Optional[UUID] = None
-
-
-class ProductImageCreate(ProductImageBase):
-    pass
-
-
-class ProductImageResponse(ProductImageBase):
-    id: UUID
-    model_config = ConfigDict(from_attributes=True)
-
-
 ProductResponse.model_rebuild()
 ProductVariantResponse.model_rebuild()
-ProductImageResponse.model_rebuild()

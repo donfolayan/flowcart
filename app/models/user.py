@@ -2,13 +2,13 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
-from uuid import UUID, uuid4
+from uuid import UUID
 from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
-    
-    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()'))
     username: Mapped[str] = mapped_column(sa.String(50), index=True, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(sa.String(255), index=True, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(sa.String(255), nullable=False)

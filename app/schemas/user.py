@@ -1,16 +1,23 @@
 import re
 import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, field_validator, model_validator, ConfigDict
+from pydantic import (
+    BaseModel,
+    Field,
+    EmailStr,
+    field_validator,
+    model_validator,
+    ConfigDict,
+)
 
 
 class UserBase(BaseModel):
-    email: EmailStr
-    username: str
+    email: EmailStr = Field(..., description="Email address of the user")
+    username: str = Field(..., max_length=50, description="Username of the user")
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=8, description="Password for the user")
 
     @field_validator("password")
     @classmethod
@@ -29,9 +36,9 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    email: Optional[EmailStr] = None
-    username: Optional[str] = None
-    password: str
+    email: Optional[EmailStr] = Field(None, description="Email address of the user")
+    username: Optional[str] = Field(None, description="Username of the user")
+    password: str = Field(..., description="Password for the user")
 
     @model_validator(mode="after")
     def validate_username_or_email(self):
@@ -41,14 +48,16 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: int
-    is_active: bool = True
-    is_verified: bool = False
-    created_at: datetime.datetime
+    id: int = Field(..., description="Unique identifier of the user")
+    is_active: bool = Field(True, description="Indicates if the user is active")
+    is_verified: bool = Field(False, description="Indicates if the user is verified")
+    created_at: datetime.datetime = Field(
+        ..., description="Timestamp when the user was created"
+    )
     model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+    access_token: str = Field(..., description="Access token for the user")
+    refresh_token: str = Field(..., description="Refresh token for the user")
+    token_type: str = Field("bearer", description="Type of the token")
