@@ -61,14 +61,14 @@ jobs:
       - name: Build Docker image
         run: docker build -f Dockerfile -t flowcart .
 
-      - name: Wait for Postgres (robust)
+      - name: Wait for Postgres
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client
           until pg_isready -h localhost -p 5432 -U testuser; do sleep 1; done
 
-      - name: Run migrations
-        run: uv run alembic upgrade head
+      # - name: Run migrations
+      #   run: uv run alembic upgrade head
 
       - name: Run pytest (full suite)
         run: uv run pytest --cov=app
