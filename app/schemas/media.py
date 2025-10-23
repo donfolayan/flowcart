@@ -38,3 +38,13 @@ class ProductMediaCreate(ProductMediaBase):
 class ProductMediaResponse(ProductMediaBase):
     id: UUID = Field(..., description="Unique identifier of the product media")
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductMediaRef(BaseModel):
+    """Lightweight reference to an existing Media used in nested create payloads."""
+
+    media_id: UUID = Field(..., description="ID of the media")
+    order: int = Field(..., description="Order of the media in the product gallery")
+    is_primary: bool = Field(
+        False, description="Indicates if the media is the primary media for the product"
+    )

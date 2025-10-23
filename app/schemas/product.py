@@ -1,10 +1,11 @@
+from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Dict, TYPE_CHECKING, List
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 
-from .media import ProductMediaResponse
+from .media import ProductMediaResponse, ProductMediaRef
 
 if TYPE_CHECKING:
     from app.schemas.product import (
@@ -39,6 +40,15 @@ class ProductCreate(ProductBase):
     pass
 
 
+class ProductCreateNested(ProductCreate):
+    variants: Optional[List[ProductVariantCreate]] = Field(
+        None, description="List of product variants"
+    )
+    media: Optional[List[ProductMediaRef]] = Field(
+        None, description="List of product media"
+    )
+
+
 class ProductUpdate(ProductBase):
     pass
 
@@ -51,7 +61,7 @@ class ProductResponse(ProductBase):
     updated_at: datetime = Field(
         ..., description="Timestamp when the product was last updated"
     )
-    variants: Optional[List["ProductVariantResponse"]] = Field(
+    variants: Optional[List[ProductVariantResponse]] = Field(
         None, description="List of product variants"
     )
     media: Optional[List[ProductMediaResponse]] = Field(
@@ -74,7 +84,6 @@ class ProductMinimalResponse(ProductBase):
 
 # Product Variant Schemas
 class ProductVariantBase(BaseModel):
-    base_product_id: UUID = Field(..., description="ID of the base product")
     sku: Optional[str] = Field(
         None, description="Stock Keeping Unit of the product variant"
     )
@@ -105,3 +114,5 @@ class ProductVariantResponse(ProductVariantBase):
 
 ProductResponse.model_rebuild()
 ProductVariantResponse.model_rebuild()
+ProductCreateNested.model_rebuild()
+ProductVariantCreate.model_rebuild()

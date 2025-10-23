@@ -2,6 +2,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 from app.db.session import get_session
@@ -36,7 +37,7 @@ async def get_current_user(
 
     try:
         payload = decode_access_token(token)
-    except Exception as e:
+    except JWTError as e:
         raise HTTPException(
             status_code=401,
             detail="Invalid token",
