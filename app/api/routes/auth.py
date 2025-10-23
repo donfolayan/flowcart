@@ -11,7 +11,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=Token)
-async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_session)):
+async def register_user(
+    payload: UserCreate, db: AsyncSession = Depends(get_session)
+) -> Token:
     stmt = select(User).where(User.email == payload.email)
     result = await db.execute(stmt)
     if result.scalar_one_or_none():
@@ -36,7 +38,9 @@ async def register_user(payload: UserCreate, db: AsyncSession = Depends(get_sess
 
 
 @router.post("/login", response_model=Token)
-async def login_user(payload: UserLogin, db: AsyncSession = Depends(get_session)):
+async def login_user(
+    payload: UserLogin, db: AsyncSession = Depends(get_session)
+) -> Token:
     query = select(User)
 
     if payload.email:

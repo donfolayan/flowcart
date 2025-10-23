@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from jose import jwt
+from fastapi import HTTPException
+from jose import JWTError, jwt
 from typing import cast
 from decouple import config
 
@@ -22,3 +23,15 @@ def create_refresh_token(data: dict) -> str:
     to_encode = {**data, "exp": expire, "scope": "refresh_token"}
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
+
+
+def decode_access_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
