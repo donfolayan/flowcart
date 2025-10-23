@@ -2,9 +2,10 @@ from typing import Optional
 from uuid import UUID
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 from app.db.session import get_session
+from app.db.user import get_user_by_id
 from app.models.user import User
 from app.core.jwt import decode_access_token
 
@@ -20,9 +21,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_current_user(
+async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ) -> User:
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -59,10 +60,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 
-    try:
-        user = db.get(User, user_id)
-    except AttributeError:
-        user = db.query(User).filter(User.id == user_id).first()
+    user = await get_user_by_id(db, user_id)
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
