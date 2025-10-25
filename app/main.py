@@ -4,6 +4,7 @@ from decouple import config
 from typing import Dict, cast
 from app.api.routes import auth
 from app.api.routes import product
+from app.api.routes import variants
 
 HOST = cast(str, config("HOST", cast=str))
 PORT = cast(int, config("PORT", cast=int))
@@ -13,6 +14,7 @@ app = FastAPI()
 
 app.include_router(auth.router)
 app.include_router(product.router)
+app.include_router(variants.router)
 
 
 @app.get("/", tags=["Sanity Check"])
