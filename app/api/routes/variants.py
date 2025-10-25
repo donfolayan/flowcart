@@ -1,9 +1,12 @@
 from uuid import UUID
-from typing import List
-from fastapi import APIRouter, status, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
-from app.models.product import ProductVariant
-from app.schemas.product import ProductVariantResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.permissions import require_admin
+from app.db.session import get_session
+from app.models.product import Product, ProductVariant
+from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
 
 router = APIRouter(
     prefix="/variants",
@@ -17,10 +20,12 @@ router = APIRouter(
     response_model=ProductVariantResponse,
     status_code=status.HTTP_200_OK,
 )
-async def get_product_variant(variant_id: UUID) -> ProductVariantResponse:
+async def get_product_variant(
+    variant_id: UUID, db: AsyncSession = Depends(get_session)
+) -> ProductVariantResponse:
     q = select(ProductVariant).where(ProductVariant.id == variant_id)
-    r = await ProductVariant.execute(q)
-    variant = r.scalars().one_or_none()
+    r = await db.execute(q)
+    variant: Optional[ProductVariant] = r.scalars().one_or_none()
 
     if not variant:
         raise HTTPException(
@@ -31,13 +36,61 @@ async def get_product_variant(variant_id: UUID) -> ProductVariantResponse:
 
 
 @router.get(
-    "/{product_id}",
+    "/product/{product_id}",
     description="Get all variants for a product",
     response_model=List[ProductVariantResponse],
     status_code=status.HTTP_200_OK,
 )
-async def get_product_variants(product_id: UUID) -> List[ProductVariantResponse]:
+async def get_product_variants(
+    product_id: UUID, db: AsyncSession = Depends(get_session)
+) -> List[ProductVariantResponse]:
     q = select(ProductVariant).where(ProductVariant.product_id == product_id)
-    r = await ProductVariant.execute(q)
-    variants = r.scalars().all()
-    return variants
+    r = await db.execute(q)
+    variants: List[ProductVariant] = list(r.scalars().all())
+    return [ProductVariantResponse.model_validate(variant) for variant in variants]
+
+
+@router.post(
+    "/{product_id}",
+    description="Create a new product variant",
+    response_model=ProductVariantResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_product_variant(
+    payload: ProductVariantCreate,
+    product_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    _is_admin: bool = Depends(require_admin),
+) -> ProductVariantResponse:
+    payload_data = payload.model_dump()
+
+    if not payload_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payload - no data provided",
+        )
+
+    product_query = select(Product).where(Product.id == product_id)
+    result_query = await db.execute(product_query)
+    base_product = result_query.scalars().one_or_none()
+
+    if base_product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Base product not found"
+        )
+
+    variant = ProductVariant(**payload_data, product_id=product_id)
+    variant.product_id = product_id
+
+    try:
+        db.add(variant)
+        await db.commit()
+        await db.refresh(variant)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create product variant",
+        ) from e
+
+    return ProductVariantResponse.model_validate(variant)
