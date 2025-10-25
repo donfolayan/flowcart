@@ -1,17 +1,11 @@
 from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Dict, TYPE_CHECKING, List
+from typing import Optional, Dict, List
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 
-from .media import ProductMediaResponse, ProductMediaRef
-
-if TYPE_CHECKING:
-    from app.schemas.product import (
-        ProductResponse,
-        ProductVariantResponse,
-    )
+from .media import ProductMediaResponse
 
 
 # Product Schemas
@@ -26,7 +20,7 @@ class ProductBase(BaseModel):
     is_variable: bool = Field(
         False, description="Indicates if the product has variants"
     )
-    is_active: bool = Field(True, description="Indicates if the product is active")
+    status: str = Field("draft", description="Status of the product")
     stock: int = Field(0, description="Stock quantity of the product")
     attributes: Optional[Dict[str, str]] = Field(
         None, description="Custom attributes for the product"
@@ -38,15 +32,6 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     pass
-
-
-class ProductCreateNested(ProductCreate):
-    variants: Optional[List[ProductVariantCreate]] = Field(
-        None, description="List of product variants"
-    )
-    media: Optional[List[ProductMediaRef]] = Field(
-        None, description="List of product media"
-    )
 
 
 class ProductUpdate(ProductBase):
@@ -61,7 +46,7 @@ class ProductResponse(ProductBase):
     updated_at: datetime = Field(
         ..., description="Timestamp when the product was last updated"
     )
-    variants: Optional[List[ProductVariantResponse]] = Field(
+    variants: Optional[List["ProductVariantResponse"]] = Field(
         None, description="List of product variants"
     )
     media: Optional[List[ProductMediaResponse]] = Field(
@@ -88,8 +73,9 @@ class ProductVariantBase(BaseModel):
         None, description="Stock Keeping Unit of the product variant"
     )
     name: str = Field(..., description="Name of the product variant")
-    price: Decimal = Field(..., description="Price of the product variant")
+    price: Optional[Decimal] = Field(None, description="Price of the product variant")
     stock: int = Field(0, description="Stock quantity of the product variant")
+    status: str = Field("draft", description="Status of the product variant")
     attributes: Optional[Dict[str, str]] = Field(
         None, description="Custom attributes for the product variant"
     )
@@ -114,5 +100,6 @@ class ProductVariantResponse(ProductVariantBase):
 
 ProductResponse.model_rebuild()
 ProductVariantResponse.model_rebuild()
-ProductCreateNested.model_rebuild()
 ProductVariantCreate.model_rebuild()
+ProductCreate.model_rebuild()
+ProductUpdate.model_rebuild()

@@ -4,7 +4,7 @@ from app.core.security import get_current_user
 
 
 async def require_admin(get_current_user: User = Depends(get_current_user)) -> User:
-    if not get_current_user.is_admin:
+    if not getattr(get_current_user, "is_admin", False):
         raise HTTPException(
             status_code=403,
             detail="Admin privileges required",

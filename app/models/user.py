@@ -14,6 +14,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("true"))
     is_verified: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
+    is_admin: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
 
