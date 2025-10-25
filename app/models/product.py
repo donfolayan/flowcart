@@ -8,7 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import event
 
 from app.db.base import Base
-from app.models.media import Media, ProductMedia
+from app.models.media import Media
+from app.models.product_media import ProductMedia
 from app.models.product_variant import ProductVariant
 from app.util.sku import generate_unique_sku
 

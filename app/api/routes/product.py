@@ -7,7 +7,8 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from app.schemas.product import ProductResponse, ProductUpdate, ProductCreate
 from app.models.product import Product, ProductVariant
-from app.models.media import Media, ProductMedia
+from app.models.media import Media
+from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 
 router = APIRouter(
@@ -68,14 +69,15 @@ async def create_product(
     if getattr(payload, "status", "draft") == "active":
         if getattr(payload, "is_variable", False) and (not variants_id):
             raise HTTPException(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one variant is required for variable products.",
             )
     if not getattr(payload, "is_variable", False) and not getattr(
         payload, "base_price", None
     ):
         raise HTTPException(
-            status_code=400, detail="Base price is required for non-variable products."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Base price is required for non-variable products.",
         )
 
     try:
@@ -91,7 +93,7 @@ async def create_product(
             missing_variants = set(variants_id) - set(variants.keys())
             if missing_variants:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Some variants not found: {', '.join(str(v) for v in missing_variants)}",
                 )
 
@@ -100,7 +102,7 @@ async def create_product(
             }
             if conflicting_variants:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_409_CONFLICT,
                     detail=f"Some variants are already associated with another product and cannot be reused: {', '.join(conflicting_variants)}",
                 )
 
@@ -108,7 +110,7 @@ async def create_product(
                 bad = [str(v.id) for v in variants.values() if v.price is None]
                 if bad:
                     raise HTTPException(
-                        status_code=400,
+                        status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"All variants must have a price for active products. Missing prices for variants: {', '.join(bad)}",
                     )
             new_variant_status = None
@@ -131,7 +133,7 @@ async def create_product(
             missing_media = set(media_id) - set(media_items.keys())
             if missing_media:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
                 )
 
@@ -204,19 +206,19 @@ async def update_product(
 
                 if not existing_variant_ids:
                     raise HTTPException(
-                        status_code=400,
+                        status_code=status.HTTP_400_BAD_REQUEST,
                         detail="At least one variant is required for variable products.",
                     )
             else:
                 if not variants_in_payload:
                     raise HTTPException(
-                        status_code=400,
+                        status_code=status.HTTP_400_BAD_REQUEST,
                         detail="At least one variant is required for variable products.",
                     )
         else:
             if new_base_price is None:
                 raise HTTPException(
-                    status_code=400,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Base price is required for non-variable products.",
                 )
 
@@ -239,7 +241,7 @@ async def update_product(
 
                     if missing_ids:
                         raise HTTPException(
-                            status_code=400,
+                            status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Some variants not found: {', '.join(str(v) for v in missing_ids)}",
                         )
 
@@ -303,7 +305,7 @@ async def update_product(
 
                 if missing_media:
                     raise HTTPException(
-                        status_code=400,
+                        status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
                     )
 

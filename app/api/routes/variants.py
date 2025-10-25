@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import List, Optional
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import require_admin
@@ -59,6 +59,7 @@ async def get_product_variants(
 async def create_product_variant(
     payload: ProductVariantCreate,
     product_id: UUID,
+    response: Response,
     db: AsyncSession = Depends(get_session),
     _is_admin: bool = Depends(require_admin),
 ) -> ProductVariantResponse:
@@ -93,4 +94,5 @@ async def create_product_variant(
             detail="Failed to create product variant",
         ) from e
 
+    response.headers["Location"] = f"/variants/{variant.id}"
     return ProductVariantResponse.model_validate(variant)

@@ -4,7 +4,7 @@ from typing import Optional, Dict, List
 from uuid import UUID
 from decimal import Decimal
 
-from .media import ProductMediaResponse
+from .product_media import ProductMediaResponse
 
 
 class ProductVariantBase(BaseModel):

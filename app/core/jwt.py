@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from typing import cast
 from decouple import config
@@ -31,7 +31,7 @@ def decode_access_token(token: str) -> dict:
         return payload
     except JWTError:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )

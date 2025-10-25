@@ -1,6 +1,6 @@
 from typing import Optional
 from uuid import UUID
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +28,7 @@ async def get_current_user(
 ) -> User:
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not Authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -39,7 +39,7 @@ async def get_current_user(
         payload = decode_access_token(token)
     except JWTError as e:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
@@ -47,7 +47,7 @@ async def get_current_user(
     user_id_value = payload.get("sub")
     if not user_id_value:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -56,7 +56,7 @@ async def get_current_user(
         user_id = UUID(str(user_id_value))
     except Exception as e:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user id in token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
@@ -64,6 +64,8 @@ async def get_current_user(
     user = await get_user_by_id(db, user_id)
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     return user

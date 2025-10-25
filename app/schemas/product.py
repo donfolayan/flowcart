@@ -6,7 +6,7 @@ from uuid import UUID
 from decimal import Decimal
 from app.schemas.product_variant import ProductVariantResponse
 
-from .media import ProductMediaResponse
+from .product_media import ProductMediaResponse
 
 
 # Product Schemas
