@@ -25,7 +25,7 @@ class ProductVariant(Base):
     )
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()'))
-    product_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True)
+    product_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id", name="fk_product_variants_product_id", ondelete="CASCADE"), nullable=True, index=True)
     sku: Mapped[str] = mapped_column(sa.String(50), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     price: Mapped[Decimal | None] = mapped_column(sa.Numeric(10, 2, asdecimal=True), nullable=True)

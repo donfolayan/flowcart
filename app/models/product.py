@@ -44,7 +44,7 @@ class Product(Base):
     variants: Mapped[list["ProductVariant"]] = relationship(
         "ProductVariant", 
         back_populates="product",
-        cascade="save-update, merge", 
+        passive_deletes=True, 
         lazy="selectin"
     )
 
