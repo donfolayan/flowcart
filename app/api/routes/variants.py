@@ -1,8 +1,9 @@
 from uuid import UUID
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.models.product import Product, ProductVariant
@@ -32,7 +33,7 @@ async def get_product_variant(
             status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
         )
 
-    return variant
+    return ProductVariantResponse.model_validate(variant)
 
 
 @router.get(
@@ -96,3 +97,69 @@ async def create_product_variant(
 
     response.headers["Location"] = f"/variants/{variant.id}"
     return ProductVariantResponse.model_validate(variant)
+
+
+@router.delete(
+    "/{variant_id}",
+    description="Delete a product variant",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def delete_product_variant(
+    variant_id: UUID, db: AsyncSession = Depends(get_session)
+) -> None:
+    q = select(ProductVariant).where(ProductVariant.id == variant_id)
+    r = await db.execute(q)
+    variant: Optional[ProductVariant] = r.scalars().one_or_none()
+
+    if not variant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
+        )
+
+    try:
+        await db.execute(delete(ProductVariant).where(ProductVariant.id == variant_id))
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete product variant",
+        ) from e
+
+
+@router.delete(
+    "/product/{product_id}",
+    description="Delete all variants for a product",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def delete_product_variants(
+    product_id: UUID, db: AsyncSession = Depends(get_session)
+) -> None:
+    q = select(ProductVariant).where(ProductVariant.product_id == product_id).limit(1)
+    r = await db.execute(q)
+    exists: ProductVariant = r.scalars().one_or_none()
+
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No variants found for the product",
+        )
+
+    try:
+        query = delete(ProductVariant).where(ProductVariant.product_id == product_id)
+        await db.execute(query)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot delete product variants due to existing dependencies",
+        ) from e
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete product variants",
+        ) from e

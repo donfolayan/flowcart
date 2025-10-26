@@ -223,168 +223,161 @@ async def update_product(
                 )
 
     try:
-        async with db.begin():
-            for key, value in update_data.items():
-                setattr(product, key, value)
+        for key, value in update_data.items():
+            setattr(product, key, value)
 
-            if variants_in_payload == [] and new_is_variable:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="At least one variant is required for variable products.",
-                )
+        if variants_in_payload == [] and new_is_variable:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one variant is required for variable products.",
+            )
 
-            # if variants are provided, update associations
-            if variants_in_payload is not None:
-                variants_in_payload = variants_in_payload or []
+        # if variants are provided, update associations
+        if variants_in_payload is not None:
+            variants_in_payload = variants_in_payload or []
 
-                # create buckets for existing, to add, to remove
-                existing_ids: List[UUID] = []
-                update_items: List[dict] = []
-                create_items: List[dict] = []
+            # create buckets for existing, to add, to remove
+            existing_ids: List[UUID] = []
+            update_items: List[dict] = []
+            create_items: List[dict] = []
 
-                # normalize input: accept UUIDs (or str), dicts, or pydantic-like objects
-                for v in variants_in_payload:
-                    if isinstance(v, (str, UUID)):
-                        existing_ids.append(UUID(str(v)))
+            # normalize input: accept UUIDs (or str), dicts, or pydantic-like objects
+            for v in variants_in_payload:
+                if isinstance(v, (str, UUID)):
+                    existing_ids.append(UUID(str(v)))
+                    continue
+
+                # Handle Pydantic models or plain dicts
+                if hasattr(v, "model_dump"):
+                    d = v.model_dump()
+                elif isinstance(v, dict):
+                    d = dict(v)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid variant data provided.",
+                    )
+
+                vid = d.get("id")
+                if vid:
+                    d["id"] = UUID(str(vid))
+                    existing_ids.append(d["id"])
+                    update_items.append(d)
+                else:
+                    create_items.append(d)
+
+            # Fetch existing variants (if any)
+            found_existing = {}
+            if existing_ids:
+                q = select(ProductVariant).where(ProductVariant.id.in_(existing_ids))
+                r = await db.execute(q)
+
+                for var in r.scalars().all():
+                    found_existing[var.id] = var
+
+                missing_ids = set(existing_ids) - set(found_existing.keys())
+                if missing_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Some variants not found: {', '.join(str(v) for v in missing_ids)}",
+                    )
+
+                # prevent variants already linked to other products
+                conflicting_variants = [
+                    str(v.id)
+                    for v in found_existing.values()
+                    if v.product_id not in (None, product.id)
+                ]
+
+                if conflicting_variants:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Some variants are already associated with another product and cannot be reused: {', '.join(conflicting_variants)}",
+                    )
+
+            # Validate prices if needed
+            if (new_status == "active") and new_is_variable:
+                bad_existing = [
+                    str(vv.id) for vv in found_existing.values() if vv.price is None
+                ]
+                bad_new = [
+                    f"(new index {i})"
+                    for i, nv in enumerate(create_items)
+                    if nv.get("price") is None
+                ]
+                bad = bad_existing + bad_new
+                if bad:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"All variants must have a price for active products. Missing prices for: {', '.join(bad)}",
+                    )
+
+            # Apply updates to existing variants
+            for item in update_items:
+                vid = item["id"]
+                variant = found_existing.get(vid)
+
+                if not variant:
+                    continue
+
+                # Update only provided fields
+                for key, value in item.items():
+                    if key == "id":
                         continue
+                    setattr(variant, key, value)
 
-                    # Handle Pydantic models or plain dicts
-                    if hasattr(v, "model_dump"):
-                        d = v.model_dump()
-                    elif isinstance(v, dict):
-                        d = dict(v)
-                    else:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Invalid variant data provided.",
-                        )
+                # Ensure association if currently assigned
+                if variant.product_id is None:
+                    variant.product_id = product.id
 
-                    vid = d.get("id")
-                    if vid:
-                        d["id"] = UUID(str(vid))
-                        existing_ids.append(d["id"])
-                        update_items.append(d)
-                    else:
-                        create_items.append(d)
+                # Ensure correct status
+                variant.status = "active" if new_status == "active" else variant.status
+                db.add(variant)
 
-                # Fetch existing variants (if any)
-                found_existing = {}
-                if existing_ids:
-                    q = select(ProductVariant).where(
-                        ProductVariant.id.in_(existing_ids)
-                    )
-                    r = await db.execute(q)
-
-                    for var in r.scalars().all():
-                        found_existing[var.id] = var
-
-                    missing_ids = set(existing_ids) - set(found_existing.keys())
-                    if missing_ids:
-                        raise HTTPException(
-                            status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"Some variants not found: {', '.join(str(v) for v in missing_ids)}",
-                        )
-
-                    # prevent variants already linked to other products
-                    conflicting_variants = [
-                        str(v.id)
-                        for v in found_existing.values()
-                        if v.product_id not in (None, product.id)
-                    ]
-
-                    if conflicting_variants:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Some variants are already associated with another product and cannot be reused: {', '.join(conflicting_variants)}",
-                        )
-
-                # Validate prices if needed
-                if (new_status == "active") and new_is_variable:
-                    bad_existing = [
-                        str(vv.id) for vv in found_existing.values() if vv.price is None
-                    ]
-                    bad_new = [
-                        f"(new index {i})"
-                        for i, nv in enumerate(create_items)
-                        if nv.get("price") is None
-                    ]
-                    bad = bad_existing + bad_new
-                    if bad:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"All variants must have a price for active products. Missing prices for: {', '.join(bad)}",
-                        )
-
-                # Apply updates to existing variants
-                for item in update_items:
-                    vid = item["id"]
-                    variant = found_existing.get(vid)
-
-                    if not variant:
-                        continue
-
-                    # Update only provided fields
-                    for key, value in item.items():
-                        if key == "id":
-                            continue
-                        setattr(variant, key, value)
-
-                    # Ensure association if currently assigned
-                    if variant.product_id is None:
-                        variant.product_id = product.id
-
-                    # Ensure correct status
-                    variant.status = (
-                        "active" if new_status == "active" else variant.status
-                    )
-                    db.add(variant)
-
-                # Create new variants and associate
-                for nv in create_items:
-                    create_data = {k: v for k, v in nv.items() if k != "id"}
-                    create_data.setdefault("product_id", product.id)
-                    create_data.setdefault(
-                        "status", "active" if new_status == "active" else "draft"
-                    )
-                    new_variant = ProductVariant(**create_data)
-                    db.add(new_variant)
-
-            # Media
-
-            if media_in_payload == []:
-                # clear all associations
-                await db.execute(
-                    delete(ProductMedia).where(ProductMedia.product_id == product.id)
+            # Create new variants and associate
+            for nv in create_items:
+                create_data = {k: v for k, v in nv.items() if k != "id"}
+                create_data.setdefault("product_id", product.id)
+                create_data.setdefault(
+                    "status", "active" if new_status == "active" else "draft"
                 )
+                new_variant = ProductVariant(**create_data)
+                db.add(new_variant)
 
-            else:
-                if media_in_payload:
-                    # validate Media rows exist
-                    q = select(Media).where(Media.id.in_(media_in_payload))
-                    r = await db.execute(q)
+        # Media
 
-                    found_media = {m.id: m for m in r.scalars().all()}
-                    missing_media = set(media_in_payload) - set(found_media.keys())
+        if media_in_payload == []:
+            # clear all associations
+            await db.execute(
+                delete(ProductMedia).where(ProductMedia.product_id == product.id)
+            )
 
-                    if missing_media:
-                        raise HTTPException(
-                            status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
-                        )
+        else:
+            if media_in_payload:
+                # validate Media rows exist
+                q = select(Media).where(Media.id.in_(media_in_payload))
+                r = await db.execute(q)
 
-                    # Current associations (media_ids)
-                    q = select(ProductMedia).where(
-                        ProductMedia.product_id == product.id
+                found_media = {m.id: m for m in r.scalars().all()}
+                missing_media = set(media_in_payload) - set(found_media.keys())
+
+                if missing_media:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
                     )
-                    r = await db.execute(q)
 
-                    current_media = {pm.media_id: pm for pm in r.scalars().all()}
+                # Current associations (media_ids)
+                q = select(ProductMedia).where(ProductMedia.product_id == product.id)
+                r = await db.execute(q)
 
-                    # Add only new associations
-                    to_add = set(media_in_payload) - set(current_media.keys())
+                current_media = {pm.media_id: pm for pm in r.scalars().all()}
 
-                    for mid in to_add:
-                        db.add(ProductMedia(product_id=product.id, media_id=mid))
+                # Add only new associations
+                to_add = set(media_in_payload) - set(current_media.keys())
+
+                for mid in to_add:
+                    db.add(ProductMedia(product_id=product.id, media_id=mid))
 
         await db.flush()
         await db.refresh(product)
