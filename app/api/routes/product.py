@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from app.db.session import get_session
@@ -55,12 +55,12 @@ async def get_product_by_id(
     description="Create a new product.",
     response_model=ProductResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 async def create_product(
     payload: ProductCreate,
     response: Response,
     db: AsyncSession = Depends(get_session),
-    _admin=Depends(require_admin),
 ) -> Product:
     variants_id: List[UUID] = getattr(payload, "variants", []) or []
     media_id: List[UUID] = getattr(payload, "media", []) or []
@@ -168,12 +168,12 @@ async def create_product(
     summary="Update Product",
     description="Update an existing product.",
     response_model=ProductResponse,
+    dependencies=[Depends(require_admin)],
 )
 async def update_product(
     product_id: UUID,
     payload: ProductUpdate,
     db: AsyncSession = Depends(get_session),
-    _admin=Depends(require_admin),
 ):
     query = select(Product).where(Product.id == product_id)
     result = await db.execute(query)
@@ -356,3 +356,29 @@ async def update_product(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Integrity error while updating product - {str(e)}",
         ) from e
+
+
+@router.delete(
+    "/{product_id}",
+    summary="Delete Product",
+    description="Delete a product by its ID.",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def delete_product(
+    product_id: UUID, db: AsyncSession = Depends(get_session)
+) -> None:
+    # Check if the product exists
+    product_query = select(Product).where(Product.id == product_id)
+    product_result = await db.execute(product_query)
+    product: Optional[Product] = product_result.scalars().one_or_none()
+
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
+
+    # Delete the product
+    await db.delete(product)
+    await db.commit()
+    return None

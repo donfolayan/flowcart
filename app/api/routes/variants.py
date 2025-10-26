@@ -55,13 +55,13 @@ async def get_product_variants(
     description="Create a new product variant",
     response_model=ProductVariantResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 async def create_product_variant(
     payload: ProductVariantCreate,
     product_id: UUID,
     response: Response,
     db: AsyncSession = Depends(get_session),
-    _is_admin: bool = Depends(require_admin),
 ) -> ProductVariantResponse:
     payload_data = payload.model_dump()
 
