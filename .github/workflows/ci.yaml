@@ -17,6 +17,9 @@ jobs:
       HOST: ${{ secrets.HOST }}
       PORT: ${{ secrets.PORT }}
       RELOAD: ${{ secrets.RELOAD }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      DATABASE_URL: postgres+asyncpg://testuser:testpass123@localhost:5432/testdb
+      
       
     services:
       postgres:
