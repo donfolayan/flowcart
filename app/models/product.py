@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, ENUM as PGENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import event
+from datetime import timezone
 
 from app.db.base import Base
 from app.models.media import Media
@@ -51,14 +52,36 @@ class Product(Base):
     def __repr__(self):
         return f"<Product(name={self.name}, sku={self.sku}, status={self.status})>"
     
-# Generate SKU before inserting a new Product, 
-# Ensure base_price for non-variable products,
-# Generate slug from name
+
 @event.listens_for(Product, "before_insert")
 def prepare_product(mapper, connection, target):
+    """
+    - Generate SKU before inserting a new Product, 
+    - Ensure base_price for non-variable products,
+    - Generate slug from name, make it unique
+    """
     if not target.sku:
         target.sku = generate_unique_sku(target.name)
+    
     if getattr(target, "status", "draft") == "active" and not getattr(target, "is_variable", False) and getattr(target, "base_price", None) is None:
         raise ValueError("Base price is required for non-variable products.")
-    if not getattr(target, "slug", None):
-        target.slug = slugify(target.name)
+    
+    base_slug = (getattr(target, "slug", None) or slugify(getattr(target, "name", "") or "")).strip()
+    if not base_slug:
+        base_slug = f"product-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    slug = base_slug
+
+    products_table = Product.__table__
+    i = 1
+    # query for existence using the connection (synchronous)
+    while True:
+        stmt = sa.select(sa.func.count()).select_from(products_table).where(products_table.c.slug == slug)
+        result = connection.execute(stmt)
+        count = result.scalar_one()
+        if count == 0:
+            break
+        # bump and try again
+        slug = f"{base_slug}-{i}"
+        i += 1
+
+    target.slug = slug

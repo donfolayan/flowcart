@@ -55,9 +55,3 @@ class UserResponse(UserBase):
         ..., description="Timestamp when the user was created"
     )
     model_config = ConfigDict(from_attributes=True)
-
-
-class Token(BaseModel):
-    access_token: str = Field(..., description="Access token for the user")
-    refresh_token: str = Field(..., description="Refresh token for the user")
-    token_type: str = Field("bearer", description="Type of the token")

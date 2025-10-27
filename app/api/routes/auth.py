@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import JWTError
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.schemas.user import UserCreate, UserLogin, Token
+from app.schemas.user import UserCreate, UserLogin
+from app.schemas.token import Token, RefreshTokenRequest
+from app.core.jwt import decode_refresh_token
 from app.db.session import get_session
 from app.models.user import User
 from app.core.security import hash_password, verify_password
@@ -62,4 +66,42 @@ async def login_user(
 
     return Token(
         access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+    )
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    data: RefreshTokenRequest, db: AsyncSession = Depends(get_session)
+) -> Token:
+    try:
+        payload = decode_refresh_token(data.refresh_token)
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+    user_id_value = payload.get("sub")
+
+    if not user_id_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Verify user still exists
+    user = await db.get(User, UUID(str(user_id_value)))
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token({"sub": str(user_id_value)})
+    new_refresh_token = create_refresh_token({"sub": str(user_id_value)})
+    return Token(
+        access_token=access_token, refresh_token=new_refresh_token, token_type="bearer"
     )

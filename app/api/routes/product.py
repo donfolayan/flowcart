@@ -1,15 +1,23 @@
 from typing import List, Optional
 from uuid import UUID
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from app.db.session import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from app.schemas.product import ProductResponse, ProductUpdate, ProductCreate
 from app.models.product import Product, ProductVariant
-from app.models.media import Media
 from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
+from app.schemas.product_variant import ProductVariantCreate
+from app.util.product import (
+    _attach_existing_variants,
+    _create_inline_variants,
+    _validate_media_and_add,
+    _product_has_variants,
+)
 
 router = APIRouter(
     prefix="/products",
@@ -27,10 +35,20 @@ async def list_all_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=250),
     db: AsyncSession = Depends(get_session),
-) -> List[Product]:
-    result = await db.execute(select(Product).offset(skip).limit(limit))
-    products = list(result.scalars().all())
-    return products
+) -> List[ProductResponse]:
+    result = await db.execute(
+        select(Product)
+        .options(
+            selectinload(Product.variants)
+            .selectinload(ProductVariant.media_associations)
+            .selectinload(ProductMedia.media),
+        )
+        .offset(skip)
+        .limit(limit)
+        .order_by(Product.created_at.desc())
+    )
+    products = result.scalars().all()
+    return [ProductResponse.model_validate(product) for product in products]
 
 
 @router.get(
@@ -41,180 +59,238 @@ async def list_all_products(
 )
 async def get_product_by_id(
     product_id: UUID, db: AsyncSession = Depends(get_session)
-) -> Product:
-    result = await db.execute(select(Product).where(Product.id == product_id))
+) -> ProductResponse:
+    q = (
+        select(Product)
+        .where(Product.id == product_id)
+        .options(
+            selectinload(Product.variants)
+            .selectinload(ProductVariant.media_associations)
+            .selectinload(ProductMedia.media)
+        )
+    )
+    result = await db.execute(q)
     product = result.scalars().first()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    return ProductResponse.model_validate(product)
 
 
 @router.post(
     "/",
-    summary="Create Product",
-    description="Create a new product.",
     response_model=ProductResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_admin)],
+    summary="Create Product",
 )
 async def create_product(
     payload: ProductCreate,
     response: Response,
     db: AsyncSession = Depends(get_session),
-) -> Product:
-    variants_id: List[UUID] = getattr(payload, "variants", []) or []
-    media_id: List[UUID] = getattr(payload, "media", []) or []
+) -> ProductResponse:
+    # model_dump with exclude_unset lets callers omit fields they don't want to set
+    data = payload.model_dump(exclude_unset=True)
 
-    # Business logic validations
-    if getattr(payload, "status", "draft") == "active":
-        if getattr(payload, "is_variable", False) and (not variants_id):
+    # Extract variant inputs and media; None = omitted, [] = explicit clear
+    inline_variants: Optional[List[ProductVariantCreate]] = data.pop(
+        "variants", None
+    )  # list[ProductVariantCreate] or None
+    variant_ids: Optional[List[UUID]] = data.pop("variant_ids", None)
+    media_ids = data.pop("media", None)  # list[UUID] or None
+
+    # Business validations before creating product
+    if data.get("status", "draft") == "active":
+        is_variable = data.get("is_variable", False)
+        has_variants_provided = inline_variants not in (
+            None,
+            [],
+        ) or variant_ids not in (None, [])
+        if is_variable and not has_variants_provided:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one variant is required for variable products.",
             )
-    if not getattr(payload, "is_variable", False) and not getattr(
-        payload, "base_price", None
-    ):
+    if not data.get("is_variable", False) and data.get("base_price", None) is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Base price is required for non-variable products.",
         )
 
     try:
-        product = Product(**payload.model_dump(exclude={"variants", "media"}))
-
+        product = Product(**{k: v for k, v in data.items()})
         db.add(product)
-        await db.flush()
+        await db.flush()  # get product.id
 
-        if variants_id:
-            query = select(ProductVariant).where(ProductVariant.id.in_(variants_id))
-            result = await db.execute(query)
-            variants = {v.id: v for v in result.scalars().all()}
-            missing_variants = set(variants_id) - set(variants.keys())
-            if missing_variants:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Some variants not found: {', '.join(str(v) for v in missing_variants)}",
-                )
+        # Attach existing variants (if provided)
+        if variant_ids:
+            await _attach_existing_variants(db, product, variant_ids)
 
-            conflicting_variants = {
-                str(v.id) for v in variants.values() if v.product_id is not None
-            }
-            if conflicting_variants:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Some variants are already associated with another product and cannot be reused: {', '.join(conflicting_variants)}",
-                )
-
-            if product.status == "active":
-                bad = [str(v.id) for v in variants.values() if v.price is None]
-                if bad:
+        # Create inline variants (if provided). Normalize pydantic objects -> dicts before passing here.
+        if inline_variants:
+            # inline_variants are ProductVariantCreate models or plain dicts
+            normalized = []
+            for v in inline_variants:
+                if hasattr(v, "model_dump"):
+                    normalized.append(v.model_dump())
+                elif isinstance(v, dict):
+                    normalized.append(dict(v))
+                else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"All variants must have a price for active products. Missing prices for variants: {', '.join(bad)}",
+                        detail="Invalid variant payload",
                     )
-            new_variant_status = None
-            if product.status == "active":
-                new_variant_status = "active"
-            else:
-                new_variant_status = "draft"
+            await _create_inline_variants(db, product, normalized)
 
-            # Bulk update variants to link to product
-            await db.execute(
-                update(ProductVariant)
-                .where(ProductVariant.id.in_(variants_id))
-                .values(product_id=product.id, status=new_variant_status)
-            )
-
-        if media_id:
-            query = select(Media).where(Media.id.in_(media_id))
-            result = await db.execute(query)
-            media_items = {m.id: m for m in result.scalars().all()}
-            missing_media = set(media_id) - set(media_items.keys())
-            if missing_media:
+        # Validate price rule for active + variable products
+        if product.status == "active" and product.is_variable:
+            missing = []
+            # check existing attached (variant_ids)
+            if variant_ids:
+                q = select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
+                r = await db.execute(q)
+                for vv in r.scalars().all():
+                    if vv.price is None:
+                        missing.append(str(vv.id))
+            # check new inline variants
+            for i, nv in enumerate(inline_variants or []):
+                # if Pydantic model -> dict, else dict assumed
+                d = (
+                    nv.model_dump()
+                    if hasattr(nv, "model_dump")
+                    else (nv if isinstance(nv, dict) else {})
+                )
+                if d.get("price") is None:
+                    missing.append(f"(new index {i})")
+            if missing:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"All variants must have a price for active products. Missing prices for: {', '.join(missing)}",
                 )
 
-            # Create ProductMedia associations
-            for media in media_items.values():
-                association = ProductMedia(
-                    product_id=product.id,
-                    media_id=media.id,
+        # Handle media semantics
+        if media_ids is not None:
+            if media_ids == []:
+                # explicit clear
+                await db.execute(
+                    delete(ProductMedia).where(ProductMedia.product_id == product.id)
                 )
-                db.add(association)
-        await db.flush()
-        await db.commit()
-        await db.refresh(product)
+            else:
+                await _validate_media_and_add(db, product, media_ids)
+        MAX_RETRIES = 3
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                await db.flush()
+                await db.commit()
+                break
+            except IntegrityError as e:
+                await db.rollback()
+
+                constraint = None
+                orig = getattr(e, "orig", None)
+                diag = getattr(orig, "diag", None) if orig is not None else None
+                if diag is not None:
+                    constraint = getattr(diag, "constraint_name", None)
+                if not constraint:
+                    # fallback: try to match text (driver-dependent)
+                    msg = str(e).lower()
+                    if "slug" in msg and "unique" in msg:
+                        constraint = "products_slug_key"
+
+                if constraint == "products_slug_key" and attempt < MAX_RETRIES:
+                    base = (
+                        product.slug.rsplit("-", 1)[0]
+                        if "-" in product.slug
+                        else product.slug
+                    )
+                    suffix = uuid.uuid4().hex[:8]
+                    product.slug = f"{base}-{suffix}"
+                    continue
+                raise
+
+        q = (
+            select(Product)
+            .where(Product.id == product.id)
+            .options(
+                selectinload(Product.variants)
+                .selectinload(ProductVariant.media_associations)
+                .selectinload(ProductMedia.media)
+            )
+        )
+        result = await db.execute(q)
+        product = result.scalars().one()
+
         response.headers["Location"] = f"/products/{product.id}"
-        return product
+        return ProductResponse.model_validate(product)
 
     except IntegrityError as e:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Integrity error while creating product - {str(e)}",
         ) from e
-
-    except ValueError as e:
+    except HTTPException:
+        # re-raise business HTTP errors without wrapping
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while creating product - {str(e)}",
         ) from e
 
 
 @router.patch(
     "/{product_id}",
-    summary="Update Product",
-    description="Update an existing product.",
     response_model=ProductResponse,
     dependencies=[Depends(require_admin)],
+    summary="Update Product",
 )
 async def update_product(
     product_id: UUID,
     payload: ProductUpdate,
     db: AsyncSession = Depends(get_session),
-):
-    query = select(Product).where(Product.id == product_id)
-    result = await db.execute(query)
+) -> ProductResponse:
+    q = select(Product).where(Product.id == product_id)
+    r = await db.execute(q)
+    product: Optional[Product] = r.scalars().one_or_none()
 
-    product = result.scalars().first()
-
-    if product is None:
+    if not product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
         )
 
-    update_data = payload.model_dump(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
+    inline_variants = data.pop("variants", None)
+    variant_ids = data.pop("variant_ids", None)
+    media_ids = data.pop("media", None)
 
-    variants_in_payload = update_data.pop("variants", None)
-    media_in_payload = update_data.pop("media", None)
+    new_status = data.get("status", product.status)
+    new_is_variable = data.get("is_variable", product.is_variable)
+    new_base_price = data.get("base_price", product.base_price)
 
-    new_status = update_data.get("status", product.status)
-    new_is_variable = update_data.get("is_variable", product.is_variable)
-    new_base_price = update_data.get("base_price", product.base_price)
-
-    # if status is active, validate variants and base_price
+    # Business validations
     if new_status == "active":
         if new_is_variable:
-            if variants_in_payload is None:
-                query = select(ProductVariant).where(
-                    ProductVariant.product_id == product.id
-                )
-                result = await db.execute(query)
-                existing_variant_ids = [v.id for v in result.scalars().all()]
+            # Decide whether the product will have at least one variant after this update.
 
-                if not existing_variant_ids:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="At least one variant is required for variable products.",
-                    )
-            else:
-                if not variants_in_payload:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="At least one variant is required for variable products.",
-                    )
+            provided_inline_variants = (
+                inline_variants is not None and len(inline_variants) > 0
+            )
+            provided_variant_ids = variant_ids is not None and len(variant_ids) > 0
+
+            # If client didn't provide any non-empty variants/variant_ids, check existing variants.
+            has_any_variants_after = (
+                provided_inline_variants
+                or provided_variant_ids
+                or await _product_has_variants(db, product.id)
+            )
+
+            if not has_any_variants_after:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one variant is required for variable products.",
+                )
         else:
             if new_base_price is None:
                 raise HTTPException(
@@ -223,194 +299,104 @@ async def update_product(
                 )
 
     try:
-        for key, value in update_data.items():
+        # apply simple attribute changes
+        for key, value in data.items():
+            # Skip variant/media handling here
+            if key in ("variants", "variant_ids", "media"):
+                continue
             setattr(product, key, value)
 
-        if variants_in_payload == [] and new_is_variable:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one variant is required for variable products.",
-            )
+        # variants handling: don't detach existing variants unless client explicitly intended
+        if variant_ids:
+            # attach existing variant ids (validate inside helper)
+            await _attach_existing_variants(db, product, variant_ids)
 
-        # if variants are provided, update associations
-        if variants_in_payload is not None:
-            variants_in_payload = variants_in_payload or []
-
-            # create buckets for existing, to add, to remove
-            existing_ids: List[UUID] = []
-            update_items: List[dict] = []
-            create_items: List[dict] = []
-
-            # normalize input: accept UUIDs (or str), dicts, or pydantic-like objects
-            for v in variants_in_payload:
-                if isinstance(v, (str, UUID)):
-                    existing_ids.append(UUID(str(v)))
-                    continue
-
-                # Handle Pydantic models or plain dicts
+        if inline_variants:
+            normalized = []
+            for v in inline_variants:
                 if hasattr(v, "model_dump"):
-                    d = v.model_dump()
+                    normalized.append(v.model_dump())
                 elif isinstance(v, dict):
-                    d = dict(v)
+                    normalized.append(dict(v))
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Invalid variant data provided.",
+                        detail="Invalid variant payload",
                     )
+            await _create_inline_variants(db, product, normalized)
 
-                vid = d.get("id")
-                if vid:
-                    d["id"] = UUID(str(vid))
-                    existing_ids.append(d["id"])
-                    update_items.append(d)
-                else:
-                    create_items.append(d)
-
-            # Fetch existing variants (if any)
-            found_existing = {}
-            if existing_ids:
-                q = select(ProductVariant).where(ProductVariant.id.in_(existing_ids))
-                r = await db.execute(q)
-
-                for var in r.scalars().all():
-                    found_existing[var.id] = var
-
-                missing_ids = set(existing_ids) - set(found_existing.keys())
-                if missing_ids:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Some variants not found: {', '.join(str(v) for v in missing_ids)}",
-                    )
-
-                # prevent variants already linked to other products
-                conflicting_variants = [
-                    str(v.id)
-                    for v in found_existing.values()
-                    if v.product_id not in (None, product.id)
-                ]
-
-                if conflicting_variants:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Some variants are already associated with another product and cannot be reused: {', '.join(conflicting_variants)}",
-                    )
-
-            # Validate prices if needed
-            if (new_status == "active") and new_is_variable:
-                bad_existing = [
-                    str(vv.id) for vv in found_existing.values() if vv.price is None
-                ]
-                bad_new = [
-                    f"(new index {i})"
-                    for i, nv in enumerate(create_items)
-                    if nv.get("price") is None
-                ]
-                bad = bad_existing + bad_new
-                if bad:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"All variants must have a price for active products. Missing prices for: {', '.join(bad)}",
-                    )
-
-            # Apply updates to existing variants
-            for item in update_items:
-                vid = item["id"]
-                variant = found_existing.get(vid)
-
-                if not variant:
-                    continue
-
-                # Update only provided fields
-                for key, value in item.items():
-                    if key == "id":
-                        continue
-                    setattr(variant, key, value)
-
-                # Ensure association if currently assigned
-                if variant.product_id is None:
-                    variant.product_id = product.id
-
-                # Ensure correct status
-                variant.status = "active" if new_status == "active" else variant.status
-                db.add(variant)
-
-            # Create new variants and associate
-            for nv in create_items:
-                create_data = {k: v for k, v in nv.items() if k != "id"}
-                create_data.setdefault("product_id", product.id)
-                create_data.setdefault(
-                    "status", "active" if new_status == "active" else "draft"
+        # media handling
+        if media_ids is not None:
+            if media_ids == []:
+                await db.execute(
+                    delete(ProductMedia).where(ProductMedia.product_id == product.id)
                 )
-                new_variant = ProductVariant(**create_data)
-                db.add(new_variant)
+            else:
+                await _validate_media_and_add(db, product, media_ids)
 
-        # Media
-
-        if media_in_payload == []:
-            # clear all associations
-            await db.execute(
-                delete(ProductMedia).where(ProductMedia.product_id == product.id)
-            )
-
-        else:
-            if media_in_payload:
-                # validate Media rows exist
-                q = select(Media).where(Media.id.in_(media_in_payload))
-                r = await db.execute(q)
-
-                found_media = {m.id: m for m in r.scalars().all()}
-                missing_media = set(media_in_payload) - set(found_media.keys())
-
-                if missing_media:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Some media items not found: {', '.join(str(m) for m in missing_media)}",
-                    )
-
-                # Current associations (media_ids)
-                q = select(ProductMedia).where(ProductMedia.product_id == product.id)
-                r = await db.execute(q)
-
-                current_media = {pm.media_id: pm for pm in r.scalars().all()}
-
-                # Add only new associations
-                to_add = set(media_in_payload) - set(current_media.keys())
-
-                for mid in to_add:
-                    db.add(ProductMedia(product_id=product.id, media_id=mid))
+        # Validate price rule for active + variable products
+        q = select(ProductVariant).where(ProductVariant.product_id == product.id)
+        r = await db.execute(q)
+        all_variants = r.scalars().all()
+        if product.status == "active" and product.is_variable:
+            missing = [str(v.id) for v in all_variants if v.price is None]
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"All variants must have price; missing: {', '.join(missing)}",
+                )
 
         await db.flush()
+        await db.commit()
         await db.refresh(product)
-        return product
+        return ProductResponse.model_validate(product)
 
     except IntegrityError as e:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Integrity error while updating product - {str(e)}",
+        ) from e
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while updating product - {str(e)}",
         ) from e
 
 
 @router.delete(
     "/{product_id}",
-    summary="Delete Product",
-    description="Delete a product by its ID.",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_admin)],
+    summary="Delete Product",
 )
-async def delete_product(
-    product_id: UUID, db: AsyncSession = Depends(get_session)
-) -> None:
-    # Check if the product exists
-    product_query = select(Product).where(Product.id == product_id)
-    product_result = await db.execute(product_query)
-    product: Optional[Product] = product_result.scalars().one_or_none()
+async def delete_product(product_id: UUID, db: AsyncSession = Depends(get_session)):
+    q = select(Product).where(Product.id == product_id)
+    r = await db.execute(q)
+    product: Optional[Product] = r.scalars().one_or_none()
 
-    if product is None:
+    if not product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
         )
 
-    # Delete the product
-    await db.delete(product)
-    await db.commit()
-    return None
+    # Deleting the product will cascade-delete variants if FK is ON DELETE CASCADE in DB
+    try:
+        await db.delete(product)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Failed to delete product due to DB constraints",
+        ) from e
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete product",
+        ) from e
