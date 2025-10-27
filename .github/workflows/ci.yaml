@@ -19,7 +19,10 @@ jobs:
       RELOAD: ${{ secrets.RELOAD }}
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       DATABASE_URL: postgres+asyncpg://testuser:testpass123@localhost:5432/testdb
-      
+      JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${{ secrets.REFRESH_TOKEN_EXPIRE_DAYS }}
+
       
     services:
       postgres:
