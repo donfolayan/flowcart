@@ -62,6 +62,15 @@ def prepare_product(mapper, connection, target):
     """
     if not target.sku:
         target.sku = generate_unique_sku(target.name)
+        
+    products_table = Product.__table__
+    
+    products_table = Product.__table__
+    stmt = sa.select(sa.func.count()).where(products_table.c.sku == target.sku)
+    result = connection.execute(stmt)
+    count = result.scalar_one()
+    if count > 0:
+        target.sku = generate_unique_sku(target.name)
     
     if getattr(target, "status", "draft") == "active" and not getattr(target, "is_variable", False) and getattr(target, "base_price", None) is None:
         raise ValueError("Base price is required for non-variable products.")
@@ -70,8 +79,7 @@ def prepare_product(mapper, connection, target):
     if not base_slug:
         base_slug = f"product-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     slug = base_slug
-
-    products_table = Product.__table__
+    
     i = 1
     # query for existence using the connection (synchronous)
     while True:

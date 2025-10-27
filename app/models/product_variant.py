@@ -46,4 +46,11 @@ class ProductVariant(Base):
 def generate_variant_sku(mapper, connection, target):
     if not target.sku:
         target.sku = generate_unique_sku(target.name)
+    
+    product_variant_table = ProductVariant.__table__
+    stmt = sa.select(sa.func.count()).where(product_variant_table.c.sku == target.sku)
+    result = connection.execute(stmt)
+    count = result.scalar_one()
+    if count > 0:
+        target.sku = generate_unique_sku(target.name)
         
