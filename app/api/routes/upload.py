@@ -10,12 +10,16 @@ from fastapi import (
 from typing import Optional, Any
 from decouple import config
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.core.security import get_current_user
 from app.core.storage.registry import get_provider
 from app.core.storage.cloudinary_provider import CloudinaryProvider
 from app.schemas.media import MediaResponse
 from app.models.media import Media
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 FOLDER = config("APPLICATION_FOLDER", cast=str)
 
@@ -26,13 +30,14 @@ router = APIRouter(prefix="/media", tags=["Upload"])
     "/upload",
     description="Upload a media file to a storage server (Cloudinary) and create media record.",
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
 )
 async def upload_stream(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_session),
     current_user: Any = Depends(get_current_user),
     folder: Optional[str] = Query(
-        None, description="Cloudinary folder to upload the file to"
+        FOLDER, description="Cloudinary folder to upload the file to"
     ),
 ) -> MediaResponse:
     provider = get_provider("cloudinary")
@@ -60,7 +65,8 @@ async def upload_stream(
     file_url = result.get("secure_url") or result.get("url")
     public_id = result.get("public_id")
     resource_type = result.get("resource_type", "unknown")
-    provider_raw = result or result.get("raw")
+    provider_raw = result.get("raw") or result
+    content_type = result.get("content_type")
 
     size_from_provider = None
     if isinstance(provider_raw, dict):
@@ -69,7 +75,7 @@ async def upload_stream(
     media = Media(
         file_url=file_url,
         alt_text=file.filename,
-        mime_type=resource_type,
+        mime_type=content_type or "application/octet-stream",
         uploaded_by=current_user.id,
         provider=CloudinaryProvider.name,
         provider_public_id=public_id,
@@ -84,3 +90,43 @@ async def upload_stream(
     await db.refresh(media)
 
     return MediaResponse.model_validate(media)
+
+
+@router.delete(
+    "/delete/{media_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def delete_media(media_id: str, db: AsyncSession = Depends(get_session)) -> None:
+    media = await db.get(Media, media_id)
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Media not found"
+        )
+
+    if not media.provider or not media.provider_public_id:
+        await db.delete(media)
+        await db.commit()
+        return
+
+    provider = get_provider(media.provider)
+    public_id = media.provider_public_id
+    resource_type = (
+        media.provider_metadata.get("resource_type")
+        if media.provider_metadata
+        else "image"
+    )
+
+    if provider and public_id:
+        try:
+            await provider.delete_file(
+                public_id=public_id, resource_type=resource_type or "image"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to delete file from storage provider: {str(e)}",
+            ) from e
+    await db.delete(media)
+    await db.commit()
+    return

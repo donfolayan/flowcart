@@ -32,5 +32,6 @@ repos:
           - "slugify"
           - "pytest-cov"
           - "cloudinary"
+          - "python-multipart"
 
           

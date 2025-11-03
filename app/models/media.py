@@ -1,7 +1,7 @@
 import sqlalchemy as sa
 from uuid import UUID
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,9 +19,9 @@ class Media(Base):
     mime_type: Mapped[str] = mapped_column(sa.String(50), nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), index=True)
     uploaded_by: Mapped[PGUUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider: Mapped[str | None] = mapped_column(sa.String(100), nullable=True, index=True)
-    provider_public_id: Mapped[str | None] = mapped_column(sa.String(200), nullable=True, index=True)
-    provider_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    provider: Mapped[Optional[str]] = mapped_column(sa.String(100), nullable=True, index=True)
+    provider_public_id: Mapped[Optional[str]] = mapped_column(sa.String(200), nullable=True, index=True)
+    provider_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("true"), index=True, nullable=False)
     
     product_associations: Mapped[list["ProductMedia"]] = relationship("ProductMedia", back_populates="media", cascade="all, delete-orphan")

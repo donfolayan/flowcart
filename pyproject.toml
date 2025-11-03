@@ -22,6 +22,7 @@ dependencies = [
     "pytest-cov>=7.0.0",
     "python-decouple>=3.8",
     "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
     "ruff>=0.14.0",
     "slugify>=0.0.1",
     "sqlalchemy[asyncio]>=2.0.44",

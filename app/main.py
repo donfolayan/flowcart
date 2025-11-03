@@ -6,6 +6,7 @@ from app.api.routes import auth
 from app.api.routes import product
 from app.api.routes import variants
 from app.api.routes import media
+from app.api.routes import upload
 from app.core.storage.registry import register_providers
 from contextlib import asynccontextmanager
 
@@ -13,23 +14,25 @@ HOST = cast(str, config("HOST", cast=str))
 PORT = cast(int, config("PORT", cast=int))
 RELOAD = cast(bool, config("RELOAD", cast=bool))
 
-app = FastAPI()
-
-app.include_router(auth.router)
-app.include_router(product.router)
-app.include_router(variants.router)
-app.include_router(media.router)
-
-
-@app.get("/", tags=["Sanity Check"])
-def read_root() -> Dict[str, str]:
-    return {"msg": "Application is running"}
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     register_providers()
     yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(auth.router)
+app.include_router(product.router)
+app.include_router(variants.router)
+app.include_router(media.router)
+app.include_router(upload.router)
+
+
+@app.get("/", tags=["Sanity Check"])
+def read_root() -> Dict[str, str]:
+    return {"msg": "Application is running"}
 
 
 if __name__ == "__main__":
