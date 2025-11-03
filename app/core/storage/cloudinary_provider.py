@@ -1,7 +1,7 @@
 import asyncio
 import cloudinary
 import cloudinary.uploader
-from typing import Any, Dict
+from typing import Any, Dict, Union, BinaryIO, Optional
 from io import BytesIO
 from decouple import config
 
@@ -24,26 +24,39 @@ class CloudinaryProvider:
 
     async def upload_file(
         self,
-        file_bytes: bytes,
-        filename: str,
-        content_types: str,
-        folder: str = APPLICATION_FOLDER,  # type: ignore
+        file: Union[bytes, BinaryIO],
+        filename: Optional[str],
+        content_type: Optional[str],
+        folder: Optional[str] = APPLICATION_FOLDER,  # type: ignore
     ) -> Dict[str, Any]:
         """Uploads a file to Cloudinary."""
 
         def _sync_upload():
+            if isinstance(file, (bytes, bytearray)):
+                file_obj = BytesIO(file)
+            elif isinstance(file, memoryview):
+                file_obj = BytesIO(file.tobytes())
+            else:
+                file_obj = file
+
+            if hasattr(file_obj, "seek"):
+                try:
+                    file_obj.seek(0)
+                except Exception:
+                    pass
+
             upload_args = {
                 "resource_type": "auto",
                 "invalidate": True,
                 "file_name": filename,
                 "use_filename": True,
                 "unique_filename": True,
-                "content_type": content_types,
+                "content_type": content_type,
             }
 
             if folder:
                 upload_args["folder"] = folder
-            return cloudinary.uploader.upload(BytesIO(file_bytes), **upload_args)
+            return cloudinary.uploader.upload(file_obj, **upload_args)
 
         result = await asyncio.to_thread(_sync_upload)
         return {

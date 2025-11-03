@@ -31,5 +31,6 @@ repos:
           - "argon2-cffi"
           - "slugify"
           - "pytest-cov"
+          - "cloudinary"
 
           
