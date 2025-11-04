@@ -33,5 +33,6 @@ repos:
           - "pytest-cov"
           - "cloudinary"
           - "python-multipart"
+          - "pydantic-settings"
 
           

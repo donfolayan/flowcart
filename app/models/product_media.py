@@ -19,7 +19,7 @@ class ProductMedia(Base):
     )
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
-    product_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True, server_default=sa.text('gen_random_uuid()'))
+    product_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     media_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("media.id", ondelete="CASCADE"), nullable=False, index=True)
     variant_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True)
     is_primary: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"), index=True)

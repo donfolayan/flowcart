@@ -1,15 +1,14 @@
 import asyncio
 import cloudinary
 import cloudinary.uploader
+from app.core.config import config
 from typing import Any, Dict, Union, BinaryIO, Optional
 from io import BytesIO
-from decouple import config
 
-
-CLOUDINARY_CLOUD_NAME = config("CLOUDINARY_CLOUD_NAME")
-CLOUDINARY_API_KEY = config("CLOUDINARY_API_KEY")
-CLOUDINARY_API_SECRET = config("CLOUDINARY_API_SECRET")
-APPLICATION_FOLDER = config("APPLICATION_FOLDER", cast=str)
+CLOUDINARY_CLOUD_NAME = config.CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY = config.CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET = config.CLOUDINARY_API_SECRET
+APPLICATION_FOLDER = config.APPLICATION_FOLDER
 
 cloudinary.config(
     cloud_name=CLOUDINARY_CLOUD_NAME,

@@ -1,18 +1,18 @@
 import uvicorn
 from fastapi import FastAPI
-from decouple import config
-from typing import Dict, cast
+from typing import Dict
 from app.api.routes import auth
 from app.api.routes import product
 from app.api.routes import variants
 from app.api.routes import media
 from app.api.routes import upload
+from app.core.config import config
 from app.core.storage.registry import register_providers
 from contextlib import asynccontextmanager
 
-HOST = cast(str, config("HOST", cast=str))
-PORT = cast(int, config("PORT", cast=int))
-RELOAD = cast(bool, config("RELOAD", cast=bool))
+HOST = config.HOST
+PORT = config.PORT
+RELOAD = config.RELOAD
 
 
 @asynccontextmanager

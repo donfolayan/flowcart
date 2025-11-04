@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
+from app.core.config import config
 from jose import JWTError, jwt
-from typing import cast
-from decouple import config
 
-JWT_SECRET_KEY = cast(str, config("JWT_SECRET_KEY", cast=str))
-JWT_ALGORITHM = cast(str, config("JWT_ALGORITHM", cast=str))
-ACCESS_TOKEN_EXPIRE_MINUTES = cast(int, config("ACCESS_TOKEN_EXPIRE_MINUTES", cast=int))
-REFRESH_TOKEN_EXPIRE_DAYS = cast(int, config("REFRESH_TOKEN_EXPIRE_DAYS", cast=int))
+JWT_SECRET_KEY = config.JWT_SECRET_KEY
+JWT_ALGORITHM = config.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = config.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = config.REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def create_access_token(data: dict) -> str:

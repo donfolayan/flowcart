@@ -8,8 +8,8 @@ from fastapi import (
     Query,
 )
 from typing import Optional, Any
-from decouple import config
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import config
 from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.core.security import get_current_user
@@ -21,7 +21,7 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-FOLDER = config("APPLICATION_FOLDER", cast=str)
+FOLDER = config.APPLICATION_FOLDER
 
 router = APIRouter(prefix="/media", tags=["Upload"])
 
