@@ -8,7 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.product_media import ProductMedia
+    from .product_media import ProductMedia
+    from .category import Category
 
 class Media(Base):
     __tablename__ = "media"
@@ -23,7 +24,8 @@ class Media(Base):
     provider_public_id: Mapped[Optional[str]] = mapped_column(sa.String(200), nullable=True, index=True)
     provider_metadata: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("true"), index=True, nullable=False)
-    
+
+    categories: Mapped[list[Optional["Category"]]] = relationship("Category", back_populates="category_image", passive_deletes=True)
     product_associations: Mapped[list["ProductMedia"]] = relationship("ProductMedia", back_populates="media", cascade="all, delete-orphan")
     
     def __repr__(self):

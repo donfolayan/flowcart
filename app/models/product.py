@@ -7,12 +7,16 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID, ENUM as PGENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import event
 from datetime import timezone
+from typing import Optional, TYPE_CHECKING
 
 from app.db.base import Base
-from app.models.media import Media
-from app.models.product_media import ProductMedia
-from app.models.product_variant import ProductVariant
 from app.util.sku import generate_unique_sku
+
+if TYPE_CHECKING:
+    from .media import Media
+    from .product_media import ProductMedia
+    from .product_variant import ProductVariant
+    from .category import Category
 
 PRODUCT_STATUS_ENUM = PGENUM("draft", "active", "archived", name="product_status")
 
@@ -34,7 +38,10 @@ class Product(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
     is_deleted: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     primary_image_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("media.id", ondelete="SET NULL"), nullable=True, index=True)
-    primary_image: Mapped["Media | None"] = relationship("Media", lazy="joined")
+    primary_image: Mapped["Media | None"] = relationship("Media", lazy="joined", foreign_keys=[primary_image_id])
+    
+    category: Mapped[Optional["Category"]] = relationship("Category", back_populates="products", lazy="selectin")
+    category_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("categories.id", ondelete="SET NULL", name="fk_products_category_id_categories"), nullable=True, index=True)
     
     media_associations: Mapped[list["ProductMedia"]] = relationship(
         "ProductMedia", 

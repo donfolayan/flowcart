@@ -55,6 +55,8 @@ import app.models.user  # noqa: F401, E402
 import app.models.product  # noqa: F401, E402
 import app.models.category  # noqa: F401, E402
 import app.models.media  # noqa: F401, E402
+import app.models.product_media  # noqa: F401, E402
+import app.models.product_variant  # noqa: F401, E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support

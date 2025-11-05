@@ -8,7 +8,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from app.schemas.product import ProductResponse, ProductUpdate, ProductCreate
-from app.models.product import Product, ProductVariant
+from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 from app.schemas.product_variant import ProductVariantCreate

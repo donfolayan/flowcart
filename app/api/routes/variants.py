@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.core.permissions import require_admin
 from app.db.session import get_session
-from app.models.product import Product, ProductVariant
+from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
 
 router = APIRouter(
