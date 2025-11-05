@@ -1,14 +1,10 @@
 import uvicorn
 from fastapi import FastAPI
 from typing import Dict
-from app.api.routes import auth
-from app.api.routes import product
-from app.api.routes import variants
-from app.api.routes import media
-from app.api.routes import upload
 from app.core.config import config
 from app.core.storage.registry import register_providers
 from contextlib import asynccontextmanager
+from app.api.routes import auth, product, variants, media, upload, category
 
 HOST = config.HOST
 PORT = config.PORT
@@ -28,6 +24,7 @@ app.include_router(product.router)
 app.include_router(variants.router)
 app.include_router(media.router)
 app.include_router(upload.router)
+app.include_router(category.router)
 
 
 @app.get("/", tags=["Sanity Check"])

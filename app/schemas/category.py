@@ -1,11 +1,9 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from app.schemas.media import MediaResponse
-
-if TYPE_CHECKING:
-    from app.schemas.product import ProductResponse
+from app.schemas.product import ProductResponse
 
 
 class CategoryBase(BaseModel):
@@ -39,3 +37,7 @@ class CategoryResponse(CategoryBase):
 class CategoryMinimalResponse(CategoryBase):
     id: UUID = Field(..., description="Unique identifier of the category")
     model_config = ConfigDict(from_attributes=True)
+
+
+ProductResponse.model_rebuild()
+CategoryResponse.model_rebuild()

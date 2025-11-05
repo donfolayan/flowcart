@@ -37,14 +37,7 @@ class Category(Base):
     def __repr__(self):
         return f"<Category(name={self.name})>"
     
-@event.listens_for(Category, "before_insert")
-def ensure_single_default_category(mapper, connection, target):
-    if target.is_default:
-        connection.execute(
-            update(sa.table("categories"))
-            .where(sa.column("is_default").is_(sa.true()))
-            .values(is_default=False)
-        )
+
 
 @event.listens_for(Category, "before_delete")
 def reassign_products_to_default(mapper, connection, target):
