@@ -22,7 +22,7 @@ router = APIRouter(
     response_model=ProductVariantResponse,
     status_code=status.HTTP_200_OK,
 )
-async def get_product_variant(
+async def get_product_variant_by_id(
     variant_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> ProductVariantResponse:
     q = select(ProductVariant).where(ProductVariant.id == variant_id)
@@ -43,7 +43,7 @@ async def get_product_variant(
     response_model=List[ProductVariantResponse],
     status_code=status.HTTP_200_OK,
 )
-async def get_product_variants(
+async def get_product_variants_by_product_id(
     product_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> List[ProductVariantResponse]:
     q = select(ProductVariant).where(ProductVariant.product_id == product_id)

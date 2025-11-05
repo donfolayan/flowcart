@@ -1,12 +1,15 @@
 from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TYPE_CHECKING
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
 
 from .product_media import ProductMediaResponse
+
+if TYPE_CHECKING:
+    from .category import CategoryMinimalResponse
 
 
 # Product Schemas
@@ -23,8 +26,14 @@ class ProductBase(BaseModel):
     )
     status: str = Field("draft", description="Status of the product")
     stock: int = Field(0, description="Stock quantity of the product")
-    attributes: Optional[Dict[str, str]] = Field(
+    attributes: Optional[Dict[str, List[str]]] = Field(
         None, description="Custom attributes for the product"
+    )
+    category_id: Optional[UUID] = Field(
+        None, description="ID of the category the product belongs to"
+    )
+    category: Optional["CategoryMinimalResponse"] = Field(
+        None, description="Category details of the product"
     )
     primary_image_id: Optional[UUID] = Field(
         None, description="ID of the primary image for the product"
@@ -107,8 +116,3 @@ class ProductMinimalResponse(ProductBase):
     updated_at: datetime = Field(
         ..., description="Timestamp when the product was last updated"
     )
-
-
-ProductResponse.model_rebuild()
-ProductCreate.model_rebuild()
-ProductUpdate.model_rebuild()

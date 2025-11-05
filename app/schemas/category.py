@@ -37,7 +37,3 @@ class CategoryResponse(CategoryBase):
 class CategoryMinimalResponse(CategoryBase):
     id: UUID = Field(..., description="Unique identifier of the category")
     model_config = ConfigDict(from_attributes=True)
-
-
-ProductResponse.model_rebuild()
-CategoryResponse.model_rebuild()

@@ -10,7 +10,6 @@ from datetime import timezone
 from typing import Optional, TYPE_CHECKING
 
 from app.db.base import Base
-from app.util.sku import generate_unique_sku
 
 if TYPE_CHECKING:
     from .media import Media
@@ -68,6 +67,7 @@ def prepare_product(mapper, connection, target):
     - Generate slug from name, make it unique
     """
     if not target.sku:
+        from app.util.sku import generate_unique_sku
         target.sku = generate_unique_sku(target.name)
         
     products_table = Product.__table__
@@ -77,6 +77,7 @@ def prepare_product(mapper, connection, target):
     result = connection.execute(stmt)
     count = result.scalar_one()
     if count > 0:
+        from app.util.sku import generate_unique_sku
         target.sku = generate_unique_sku(target.name)
     
     if getattr(target, "status", "draft") == "active" and not getattr(target, "is_variable", False) and getattr(target, "base_price", None) is None:
@@ -100,3 +101,8 @@ def prepare_product(mapper, connection, target):
         i += 1
 
     target.slug = slug
+
+    if target.category_id is None:
+        from .category import Category
+        default_category = Category.get_default(connection)
+        target.category_id = default_category

@@ -15,7 +15,7 @@ class ProductVariantBase(BaseModel):
     price: Optional[Decimal] = Field(None, description="Price of the product variant")
     stock: int = Field(0, description="Stock quantity of the product variant")
     status: str = Field("draft", description="Status of the product variant")
-    attributes: Optional[Dict[str, str]] = Field(
+    attributes: Optional[Dict[str, List[str]]] = Field(
         None, description="Custom attributes for the product variant"
     )
     primary_image_id: Optional[UUID] = Field(

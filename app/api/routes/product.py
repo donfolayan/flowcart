@@ -126,9 +126,7 @@ async def create_product(
         if variant_ids:
             await _attach_existing_variants(db, product, variant_ids)
 
-        # Create inline variants (if provided). Normalize pydantic objects -> dicts before passing here.
         if inline_variants:
-            # inline_variants are ProductVariantCreate models or plain dicts
             normalized = []
             for v in inline_variants:
                 if hasattr(v, "model_dump"):
@@ -154,7 +152,6 @@ async def create_product(
                         missing.append(str(vv.id))
             # check new inline variants
             for i, nv in enumerate(inline_variants or []):
-                # if Pydantic model -> dict, else dict assumed
                 d = (
                     nv.model_dump()
                     if hasattr(nv, "model_dump")
@@ -219,6 +216,9 @@ async def create_product(
         )
         result = await db.execute(q)
         product = result.scalars().one()
+
+        if not getattr(product, "variant_ids", None):
+            product.variant_ids = [v.id for v in product.variants]
 
         response.headers["Location"] = f"/products/{product.id}"
         return ProductResponse.model_validate(product)
