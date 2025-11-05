@@ -30,11 +30,11 @@ class Product(Base):
     base_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(10, 2, asdecimal=True), nullable=True)
     sku: Mapped[str] = mapped_column(sa.String(50), unique=True, nullable=False)
     is_variable: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
-    status: Mapped[str] = mapped_column(PRODUCT_STATUS_ENUM, server_default=sa.text("'draft'::product_status"), nullable=False, index=True)    
+    status: Mapped[str] = mapped_column(PRODUCT_STATUS_ENUM, index=True, server_default=sa.text("'draft'::product_status"), nullable=False)
     stock: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=sa.text("0"))
     attributes: Mapped[dict] = mapped_column(sa.JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now())
-    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now())
+    updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now(), onupdate=sa.func.now())
     is_deleted: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     primary_image_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("media.id", ondelete="SET NULL"), nullable=True, index=True)
     primary_image: Mapped["Media | None"] = relationship("Media", lazy="joined", foreign_keys=[primary_image_id])
@@ -72,7 +72,6 @@ def prepare_product(mapper, connection, target):
         
     products_table = Product.__table__
     
-    products_table = Product.__table__
     stmt = sa.select(sa.func.count()).where(products_table.c.sku == target.sku)
     result = connection.execute(stmt)
     count = result.scalar_one()
