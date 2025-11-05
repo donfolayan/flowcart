@@ -89,13 +89,9 @@ async def create_product(
     response: Response,
     db: AsyncSession = Depends(get_session),
 ) -> ProductResponse:
-    # model_dump with exclude_unset lets callers omit fields they don't want to set
     data = payload.model_dump(exclude_unset=True)
 
-    # Extract variant inputs and media; None = omitted, [] = explicit clear
-    inline_variants: Optional[List[ProductVariantCreate]] = data.pop(
-        "variants", None
-    )  # list[ProductVariantCreate] or None
+    inline_variants: Optional[List[ProductVariantCreate]] = data.pop("variants", None)
     variant_ids: Optional[List[UUID]] = data.pop("variant_ids", None)
     media_ids = data.pop("media", None)  # list[UUID] or None
 
@@ -230,7 +226,6 @@ async def create_product(
             detail=f"Integrity error while creating product - {str(e)}",
         ) from e
     except HTTPException:
-        # re-raise business HTTP errors without wrapping
         await db.rollback()
         raise
     except Exception as e:
