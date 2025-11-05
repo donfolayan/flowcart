@@ -1,7 +1,11 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
+from typing import TYPE_CHECKING, List
 
 from app.schemas.media import MediaResponse
+
+if TYPE_CHECKING:
+    from app.schemas.product import ProductResponse
 
 
 class CategoryBase(BaseModel):
@@ -25,6 +29,9 @@ class CategoryResponse(CategoryBase):
     id: UUID = Field(..., description="Unique identifier of the category")
     category_image: MediaResponse | None = Field(
         None, description="Category image details"
+    )
+    products: List["ProductResponse"] = Field(
+        ..., description="List of products in this category"
     )
     model_config = ConfigDict(from_attributes=True)
 
