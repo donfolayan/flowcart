@@ -1,19 +1,19 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from datetime import datetime
+from typing import Optional
 
 
 class ProductMediaBase(BaseModel):
     product_id: UUID = Field(..., description="ID of the product")
-    media_id: UUID = Field(..., description="ID of the media")
-    variant_id: UUID | None = Field(None, description="ID of the product variant")
+    variant_id: Optional[UUID] = Field(None, description="ID of the product variant")
     is_primary: bool = Field(
         False, description="Indicates if the media is the primary media for the product"
     )
 
 
 class ProductMediaCreate(ProductMediaBase):
-    pass
+    media_id: UUID = Field(..., description="ID of the media")
 
 
 class ProductMediaResponse(ProductMediaBase):

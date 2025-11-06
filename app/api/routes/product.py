@@ -13,10 +13,10 @@ from app.models.product_variant import ProductVariant
 from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 from app.schemas.product_variant import ProductVariantCreate
-from app.util.product import (
+from app.services.product_media import _validate_media_and_add
+from app.services.product import (
     _attach_existing_variants,
     _create_inline_variants,
-    _validate_media_and_add,
     _product_has_variants,
 )
 
