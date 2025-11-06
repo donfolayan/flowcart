@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, status, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -34,6 +34,14 @@ async def get_media(
         )
 
     return media
+
+
+@router.get("/", description="List all media", response_model=List[MediaResponse])
+async def list_media(db: AsyncSession = Depends(get_session)) -> List[MediaResponse]:
+    q = select(Media).order_by(Media.uploaded_at.desc())
+    r = await db.execute(q)
+    media_items = r.scalars().all()
+    return [MediaResponse.model_validate(item) for item in media_items]
 
 
 @router.post(

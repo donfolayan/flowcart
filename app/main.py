@@ -4,7 +4,15 @@ from typing import Dict
 from app.core.config import config
 from app.core.storage.registry import register_providers
 from contextlib import asynccontextmanager
-from app.api.routes import auth, product, variants, media, upload, category
+from app.api.routes import (
+    auth,
+    product,
+    variants,
+    media,
+    upload,
+    category,
+    product_media,
+)
 
 HOST = config.HOST
 PORT = config.PORT
@@ -23,6 +31,7 @@ app.include_router(auth.router)
 app.include_router(product.router)
 app.include_router(variants.router)
 app.include_router(media.router)
+app.include_router(product_media.router)
 app.include_router(upload.router)
 app.include_router(category.router)
 
