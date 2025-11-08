@@ -1,4 +1,5 @@
 import enum
+from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 
 
 class CartStatus(enum.StrEnum):
@@ -8,3 +9,6 @@ class CartStatus(enum.StrEnum):
     cancelled = "cancelled"
     expired = "expired"
     archived = "archived"
+
+
+cart_status = PGEnum(*(e.value for e in CartStatus), name="cart_status")

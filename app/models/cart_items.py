@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.enums.currency_enums import CurrencyEnum
+from app.enums.currency_enums import currency_enum, CurrencyEnum
 
 if TYPE_CHECKING:
     from .cart import Cart
@@ -31,7 +31,7 @@ class CartItem(Base):
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=sa.text("1"))
 
     # Pricing details
-    unit_price_currency: Mapped[CurrencyEnum] = mapped_column(sa.Enum(CurrencyEnum, name="currency_enum"), server_default=sa.text("'USD'::currency_enum"), nullable=False)
+    unit_price_currency: Mapped[CurrencyEnum] = mapped_column(currency_enum, server_default=sa.text("'USD'::currency_enum"), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2, asdecimal=True), nullable=False)
     tax_amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2, asdecimal=True), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2, asdecimal=True), nullable=False)

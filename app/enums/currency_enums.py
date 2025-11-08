@@ -1,4 +1,5 @@
 import enum
+from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 
 
 class CurrencyEnum(str, enum.Enum):
@@ -13,3 +14,6 @@ class CurrencyEnum(str, enum.Enum):
     CNY = "CNY"
     SEK = "SEK"
     NZD = "NZD"
+
+
+currency_enum = PGEnum(*(e.value for e in CurrencyEnum), name="currency_enum")

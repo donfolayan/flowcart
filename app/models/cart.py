@@ -6,8 +6,8 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.enums.cart_enums import CartStatus
-from app.enums.currency_enums import CurrencyEnum
+from app.enums.cart_enums import cart_status, CartStatus
+from app.enums.currency_enums import currency_enum, CurrencyEnum
 
 if TYPE_CHECKING:
     from .cart_items import CartItem
@@ -24,8 +24,8 @@ class Cart(Base):
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")) 
     user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True) #nullable for guest carts
     session_id: Mapped[str] = mapped_column(sa.String(255), nullable=True, index=True) #for guest carts
-    status: Mapped[CartStatus] = mapped_column(sa.Enum(CartStatus, name="cart_status"), server_default=sa.text("'active'::cart_status"), nullable=False, index=True)
-    currency: Mapped[CurrencyEnum] = mapped_column(sa.Enum(CurrencyEnum, name="currency_enum"), server_default=sa.text("'USD'::currency_enum"), nullable=False)
+    status: Mapped[CartStatus] = mapped_column(cart_status, server_default=sa.text("'active'::cart_status"), nullable=False, index=True)
+    currency: Mapped[CurrencyEnum] = mapped_column(currency_enum, server_default=sa.text("'USD'::currency_enum"), nullable=False)
     
     # Totals
     subtotal: Mapped[Decimal] = mapped_column(sa.Numeric(10, 2, asdecimal=True), nullable=False, server_default=sa.text("0.00"))
