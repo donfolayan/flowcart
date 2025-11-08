@@ -24,10 +24,10 @@ class Product(Base):
     __table_args__ = (sa.CheckConstraint("stock >= 0", name="chk_product_stock_non_negative"),)
     
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
-    name: Mapped[str] = mapped_column(sa.String(100), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(255), index=True, nullable=False)
     slug: Mapped[str] = mapped_column(sa.String(120), unique=True, nullable=False)
     description: Mapped[str] = mapped_column(sa.Text, nullable=True)
-    base_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(10, 2, asdecimal=True), nullable=True)
+    base_price: Mapped[Optional[Decimal]] = mapped_column(sa.Numeric(10, 2, asdecimal=True), nullable=True)
     sku: Mapped[str] = mapped_column(sa.String(50), unique=True, nullable=False)
     is_variable: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     status: Mapped[str] = mapped_column(PRODUCT_STATUS_ENUM, index=True, server_default=sa.text("'draft'::product_status"), nullable=False)
