@@ -1,0 +1,87 @@
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_session
+from app.enums.cart_enums import CartStatus
+from app.models.cart import Cart
+from app.schemas.cart import CartResponse
+from app.api.dependencies.cart import get_cart_or_404
+
+router = APIRouter(prefix="/cart", tags=["cart"])
+
+
+@router.get(
+    "/{cart_id}",
+    response_model=CartResponse,
+    status_code=status.HTTP_200_OK,
+    description="Retrieve a cart by its ID",
+)
+async def get_cart(
+    cart_id: UUID,
+    db: AsyncSession = Depends(get_session),
+):
+    cart: Cart = await get_cart_or_404(cart_id, db)
+    return cart
+
+
+@router.post(
+    "/",
+    response_model=CartResponse,
+    description="Create a new cart",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_cart(
+    response: Response,
+    db: AsyncSession = Depends(get_session),
+):
+    new_cart = Cart(status="active")
+    db.add(new_cart)
+    try:
+        await db.commit()
+        await db.refresh(new_cart)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error - {str(e)}",
+        ) from e
+
+    response.headers["Location"] = f"/cart/{new_cart.id}"
+    return CartResponse.model_validate(new_cart)
+
+
+@router.post(
+    "/{cart_id}/checkout",
+    response_model=CartResponse,
+    status_code=status.HTTP_200_OK,
+    description="Checkout the cart",
+)
+async def checkout_cart(
+    cart_id: UUID,
+    db: AsyncSession = Depends(get_session),
+):
+    cart: Cart = await get_cart_or_404(cart_id, db)
+
+    if getattr(cart, "status", None) != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot checkout non-active cart",
+        )
+
+    cart.status = CartStatus.completed
+    try:
+        db.add(cart)
+        await db.commit()
+        await db.refresh(cart)
+    except Exception as e:
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error - {str(e)}",
+        ) from e
+
+    return CartResponse.model_validate(cart)

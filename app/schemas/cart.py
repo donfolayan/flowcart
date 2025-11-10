@@ -1,13 +1,11 @@
 from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING, List
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from app.enums.cart_enums import CartStatus
 from app.enums.currency_enums import CurrencyEnum
-
-if TYPE_CHECKING:
-    from .cart_item import CartItemResponse
+from app.schemas.cart_item import CartItemResponse
 
 
 class CartBase(BaseModel):
@@ -75,8 +73,8 @@ class CartResponse(CartBase):
         ..., description="Version number for optimistic concurrency control"
     )
 
-    items: List["CartItemResponse"] = Field(
-        ..., description="List of items in the cart"
+    items: List[CartItemResponse] = Field(
+        default_factory=list, description="List of items in the cart"
     )
 
 

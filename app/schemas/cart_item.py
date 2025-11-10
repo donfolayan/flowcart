@@ -76,3 +76,6 @@ class CartItemResponse(CartItemBase):
     updated_at: datetime = Field(
         ..., description="Datetime when the cart item was last updated"
     )
+
+
+CartItemResponse.model_rebuild()

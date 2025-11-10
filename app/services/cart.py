@@ -1,88 +1,159 @@
 import logging
 from typing import Optional
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
+from app.models.product import Product
 
 logger = logging.getLogger(__name__)
 
 
 async def _add_item_to_cart(
     db: AsyncSession,
-    variant_id: UUID,
+    variant_id: Optional[UUID],
     cart: Cart,
     product_id: UUID,
     quantity: int = 1,
     commit: bool = True,
     max_retries: int = 3,
 ) -> CartItem:
-    """Add item to cart or update quantity if it exists.
-
-    Retries on IntegrityError caused by concurrent inserts.
-    Does not log DB internals to clients; logs them for diagnostics.
-    """
+    """Add item to cart. If item with same variant_id exists, increments quantity."""
     if quantity <= 0:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Quantity must be greater than zero",
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be > 0"
         )
 
-    last_exc: Optional[Exception] = None
+    if cart is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
+        )
+
+    prod_stmt = (
+        select(Product)
+        .where(Product.id == product_id)
+        .options(selectinload(Product.variants))
+    )
+    prod_res = await db.execute(prod_stmt)
+    product: Optional[Product] = prod_res.scalars().one_or_none()
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
+
+    has_variants = bool(getattr(product, "variants", None))
+    if has_variants and variant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This product requires a variant_id to add to cart",
+        )
+
+    def cartitem_where_clause():
+        if variant_id is not None:
+            return and_(
+                CartItem.cart_id == cart.id,
+                CartItem.variant_id == variant_id,
+            )
+        # variant_id is None -> match by product_id and ensure variant_id is NULL
+        return and_(
+            CartItem.cart_id == cart.id,
+            CartItem.product_id == product_id,
+            CartItem.variant_id.is_(None),
+        )
+
+    refreshed_cart = await db.get(Cart, cart.id)
+    if refreshed_cart is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
+        )
+    old_cart_version = refreshed_cart.version
+
+    last_exc = None
     for attempt in range(1, max_retries + 1):
         try:
-            stmt = (
-                select(CartItem)
-                .where(CartItem.cart_id == cart.id, CartItem.variant_id == variant_id)
-                .options(selectinload(CartItem.product))
-                .with_for_update()
+            # Try to update existing CartItem (increment quantity)
+            upd_stmt = (
+                update(CartItem)
+                .where(cartitem_where_clause())
+                .values(quantity=(CartItem.quantity + quantity))
+                .returning(CartItem.id)
             )
-            result = await db.execute(stmt)
-            q: Optional[CartItem] = result.scalars().one_or_none()
+            res = await db.execute(upd_stmt)
+            updated_row = res.scalar_one_or_none()
 
-            if q:
-                q.quantity += quantity
-                db.add(q)
-            else:
-                q = CartItem(
-                    cart_id=cart.id,
-                    variant_id=variant_id,
-                    product_id=product_id,
-                    quantity=quantity,
+            if updated_row:
+                # bump cart version atomically
+                cart_version_stmt = (
+                    update(Cart)
+                    .where(Cart.id == cart.id, Cart.version == old_cart_version)
+                    .values(version=(Cart.version + 1))
+                    .returning(Cart.version)
                 )
-                db.add(q)
+                ver_res = await db.execute(cart_version_stmt)
+                new_version = ver_res.scalar_one_or_none()
+                if new_version is None:
+                    await db.rollback()
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Cart modified concurrently, please retry.",
+                    )
 
-            # bump cart version; ensure cart exists in DB scope
-            if cart is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
-                )
-            cart.version += 1
-            db.add(cart)
+                if commit:
+                    await db.commit()
+
+                # return the updated item
+                q_stmt = select(CartItem).where(cartitem_where_clause())
+                q_res = await db.execute(q_stmt)
+                item = q_res.scalars().one_or_none()
+                return item
+
+            # No existing item -> create new one
+            new_item = CartItem(
+                cart_id=cart.id,
+                variant_id=variant_id,  # may be None
+                product_id=product_id,
+                quantity=quantity,
+            )
+            db.add(new_item)
 
             await db.flush()
 
+            # bump version
+            cart_version_stmt = (
+                update(Cart)
+                .where(Cart.id == cart.id, Cart.version == old_cart_version)
+                .values(version=(Cart.version + 1))
+                .returning(Cart.version)
+            )
+            ver_res = await db.execute(cart_version_stmt)
+            new_version = ver_res.scalar_one_or_none()
+            if new_version is None:
+                await db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cart modified concurrently, please retry.",
+                )
+
             if commit:
                 await db.commit()
+            else:
+                await db.flush()
 
-            # Refresh the instance; if refresh fails, defensively re-query
+            # attempt refresh, fallback to defensive query
             try:
-                await db.refresh(q)
+                await db.refresh(new_item)
             except Exception:
-                if getattr(q, "id", None) is not None:
-                    re_stmt = (
-                        select(CartItem)
-                        .where(CartItem.id == q.id)
-                        .options(selectinload(CartItem.product))
-                    )
-                    re_res = await db.execute(re_stmt)
-                    q = re_res.scalars().one_or_none()
+                q_stmt = select(CartItem).where(
+                    CartItem.id == getattr(new_item, "id", None)
+                )
+                q_res = await db.execute(q_stmt)
+                new_item = q_res.scalars().one_or_none()
 
-            return q
+            return new_item
 
         except IntegrityError as e:
             last_exc = e
@@ -91,32 +162,42 @@ async def _add_item_to_cart(
             except Exception:
                 pass
             logger.warning(
-                "IntegrityError adding cart item (attempt %d/%d): %s",
+                "IntegrityError while adding item (attempt %d/%d): %s",
                 attempt,
                 max_retries,
                 getattr(e, "orig", e),
             )
-            # final attempt -> return friendly error
+
             if attempt == max_retries:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Failed to add item to cart due to concurrent update. Please retry.",
+                    detail="Failed to add item due to concurrent update; please retry.",
                 )
-            # otherwise retry loop
+
+            refreshed_cart = await db.get(Cart, cart.id)
+            if refreshed_cart is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
+                )
+            old_cart_version = refreshed_cart.version
+
+        except HTTPException:
+            raise
 
         except Exception as e:
+            last_exc = e
             try:
                 await db.rollback()
             except Exception:
                 pass
-            logger.exception("Unexpected error adding item to cart: %s", e)
+            logger.exception("Unexpected error in _add_item_to_cart: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error",
             )
 
-    # should not reach here
-    logger.error("Exhausted retries adding item to cart: %s", last_exc)
+    # Exhausted retries
+    logger.error("Exhausted retries in _add_item_to_cart: %s", last_exc)
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Could not add item to cart",
