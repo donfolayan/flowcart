@@ -10,7 +10,7 @@ from app.enums.cart_enums import cart_status, CartStatus
 from app.enums.currency_enums import currency_enum, CurrencyEnum
 
 if TYPE_CHECKING:
-    from .cart_items import CartItem
+    from .cart_item import CartItem
 
 class Cart(Base):
     __tablename__ = "carts"
