@@ -28,17 +28,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-api_router = APIRouter(prefix="/api/v1")
+api = APIRouter(prefix="/api/v1")
 
-app.include_router(auth.router)
-app.include_router(product.router)
-app.include_router(variants.router)
-app.include_router(media.router)
-app.include_router(product_media.router)
-app.include_router(upload.router)
-app.include_router(category.router)
-app.include_router(cart.router)
-app.include_router(cart_items.router)
+api.include_router(auth.router)
+api.include_router(product.router)
+api.include_router(variants.router)
+api.include_router(media.router)
+api.include_router(product_media.router)
+api.include_router(upload.router)
+api.include_router(category.router)
+api.include_router(cart.router)
+api.include_router(cart_items.router)
+app.include_router(api)
 
 
 @app.get("/", tags=["Sanity Check"])

@@ -59,6 +59,8 @@ import app.models.product_media  # noqa: F401, E402
 import app.models.product_variant  # noqa: F401, E402
 import app.models.cart  # noqa: F401, E402
 import app.models.cart_item  # noqa: F401, E402
+import app.models.order  # noqa: F401, E402
+import app.models.order_item  # noqa: F401, E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support
