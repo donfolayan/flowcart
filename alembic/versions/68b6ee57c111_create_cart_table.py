@@ -20,45 +20,55 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+
+    cart_status_enum = postgresql.ENUM(
+        "active",
+        "completed",
+        "abandoned",
+        "cancelled",
+        "expired",
+        "archived",
+        name="cart_status",
+    )
+    cart_status_enum.create(op.get_bind(), checkfirst=True)
+
+    currency_enum = postgresql.ENUM(
+        "USD",
+        "NGN",
+        "EUR",
+        "GBP",
+        "JPY",
+        "AUD",
+        "CAD",
+        "CHF",
+        "CNY",
+        "SEK",
+        "NZD",
+        name="currency_enum",
+    )
+    currency_enum.create(op.get_bind(), checkfirst=True)
+
     op.create_table(
         "carts",
         sa.Column(
-            "id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False
+            "id",
+            postgresql.UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
         ),
-        sa.Column("user_id", sa.UUID(), nullable=True),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("session_id", sa.String(length=255), nullable=True),
         sa.Column(
             "status",
-            postgresql.ENUM(
-                "active",
-                "completed",
-                "abandoned",
-                "cancelled",
-                "expired",
-                "archived",
-                name="cart_status",
-            ),
+            postgresql.ENUM(name="cart_status", create_type=False),
             server_default=sa.text("'active'::cart_status"),
             nullable=False,
         ),
         sa.Column(
             "currency",
-            postgresql.ENUM(
-                "USD",
-                "NGN",
-                "EUR",
-                "GBP",
-                "JPY",
-                "AUD",
-                "CAD",
-                "CHF",
-                "CNY",
-                "SEK",
-                "NZD",
-                name="currency_enum",
-            ),
-            server_default=sa.text("'USD'::currency_enum"),
+            postgresql.ENUM(name="currency_enum", create_type=False),
             nullable=False,
+            server_default=sa.text("'USD'::currency_enum"),
         ),
         sa.Column(
             "subtotal",
@@ -160,3 +170,31 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_carts_expires_at"), table_name="carts")
     op.drop_index(op.f("ix_carts_created_at"), table_name="carts")
     op.drop_table("carts")
+
+    # drop enum types if present (idempotent)
+    cart_status_enum = postgresql.ENUM(
+        "active",
+        "completed",
+        "abandoned",
+        "cancelled",
+        "expired",
+        "archived",
+        name="cart_status",
+    )
+    cart_status_enum.drop(op.get_bind(), checkfirst=True)
+
+    currency_enum = postgresql.ENUM(
+        "USD",
+        "NGN",
+        "EUR",
+        "GBP",
+        "JPY",
+        "AUD",
+        "CAD",
+        "CHF",
+        "CNY",
+        "SEK",
+        "NZD",
+        name="currency_enum",
+    )
+    currency_enum.drop(op.get_bind(), checkfirst=True)

@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +7,9 @@ from app.db.session import get_session
 from app.enums.cart_enums import CartStatus
 from app.models.cart import Cart
 from app.schemas.cart import CartResponse
-from app.api.dependencies.cart import get_cart_or_404
+from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
+from app.api.dependencies.session import get_or_create_session_id
+from app.core.permissions import get_current_user_optional
 
 router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -33,9 +36,15 @@ async def get_cart(
 )
 async def create_cart(
     response: Response,
+    user_id: Optional[UUID] = Depends(get_current_user_optional),
+    session_id: str = Depends(get_or_create_session_id),
     db: AsyncSession = Depends(get_session),
 ):
-    new_cart = Cart(status="active")
+    new_cart = await get_or_create_cart(
+        db=db,
+        user_id=user_id if user_id else None,
+        session_id=session_id,
+    )
     db.add(new_cart)
     try:
         await db.commit()
