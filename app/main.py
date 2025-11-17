@@ -3,6 +3,7 @@ from fastapi import FastAPI, APIRouter
 from typing import Dict
 from app.core.config import config
 from app.core.storage.registry import register_providers
+from app.db.listeners import register_listeners
 from contextlib import asynccontextmanager
 from app.api.routes import (
     auth,
@@ -24,6 +25,7 @@ RELOAD = config.RELOAD
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     register_providers()
+    register_listeners()
     yield
 
 
