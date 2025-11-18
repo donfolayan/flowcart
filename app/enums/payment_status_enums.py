@@ -4,9 +4,13 @@ from sqlalchemy.dialects.postgresql import ENUM as PGEnum
 
 class PaymentStatusEnum(str, enum.Enum):
     PENDING = "pending"
+    PROCESSING = "processing"
+    AUTHORIZED = "authorized"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
     FAILED = "failed"
     REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
 
 
 payment_status = PGEnum(

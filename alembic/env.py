@@ -61,12 +61,15 @@ import app.models.cart  # noqa: F401, E402
 import app.models.cart_item  # noqa: F401, E402
 import app.models.order  # noqa: F401, E402
 import app.models.order_item  # noqa: F401, E402
+import app.models.address  # noqa: F401, E402
+import app.models.payment  # noqa: F401, E402
+import app.models.shipping  # noqa: F401, E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata
+target_metadata: MetaData = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

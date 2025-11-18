@@ -1,8 +1,8 @@
 """create order_items table
 
-Revision ID: d0d67f13e4aa
-Revises: 4a714213d4a5
-Create Date: 2025-11-11 13:15:37.422211
+Revision ID: 2d49559c3a11
+Revises: 039107460e92
+Create Date: 2025-11-17 11:30:34.857423
 
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision: str = "d0d67f13e4aa"
-down_revision: Union[str, Sequence[str], None] = "4a714213d4a5"
+revision: str = "2d49559c3a11"
+down_revision: Union[str, Sequence[str], None] = "039107460e92"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -49,6 +49,18 @@ def upgrade() -> None:
             sa.Computed("quantity * unit_price_cents", persisted=True),
             nullable=False,
         ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "line_total_cents >= 0", name="ck_orderitem_line_total_non_negative"
         ),
@@ -57,7 +69,7 @@ def upgrade() -> None:
             "unit_price_cents >= 0", name="ck_orderitem_unit_price_non_negative"
         ),
         sa.ForeignKeyConstraint(["order_id"], ["orders.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["product_id"], ["products.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["variant_id"], ["product_variants.id"], ondelete="SET NULL"
         ),
