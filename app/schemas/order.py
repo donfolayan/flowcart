@@ -6,39 +6,48 @@ from app.enums.order_enums import OrderStatusEnum
 from app.enums.currency_enums import CurrencyEnum
 
 if TYPE_CHECKING:
-    from .order_item import OrderItemBase
-    from .address import AddressResponse
-    from .payment import PaymentResponse
-    from .shipping import ShippingResponse
+    from .order_item import OrderItemResponse
 
 
-class OrderBase(BaseModel):
+class OrderCreate(BaseModel):
+    cart_id: UUID = Field(
+        ..., description="Unique identifier of the cart to create order from"
+    )
+    shipping_address_id: UUID = Field(
+        ..., description="Unique identifier of the shipping address"
+    )
+    billing_address_id: Optional[UUID] = Field(
+        None, description="Unique identifier of the billing address"
+    )
+    billing_address_same_as_shipping: bool = Field(
+        True,
+        description="Flag indicating if billing address is same as shipping address",
+    )
+    idempotency_key: Optional[str] = Field(
+        None, description="Idempotency key to prevent duplicate orders", max_length=128
+    )
+
+
+class OrderUpdate(BaseModel):
+    version: int = Field(
+        ...,
+        description="Current version of the order for optimistic concurrency control",
+    )
+    status: Optional[OrderStatusEnum] = Field(None, description="Status of the order")
+
+
+class OrderResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: UUID = Field(..., description="Unique identifier of the order")
+    cart_id: Optional[UUID] = Field(
+        None, description="Unique identifier of the associated cart"
+    )
     user_id: Optional[UUID] = Field(
         None, description="Unique identifier of the user who placed the order"
     )
-    currency: Optional[CurrencyEnum] = Field(
-        CurrencyEnum.USD, description="Currency of the order"
-    )
-    status: Optional[OrderStatusEnum] = Field(
-        OrderStatusEnum.PENDING, description="Status of the order"
-    )
-    total_cents: Optional[int] = Field(
-        None, description="Total amount of the order in cents"
-    )
-    idempotency_key: Optional[str] = Field(
-        None, description="Idempotency key provided by client for safe retries"
-    )
-    external_reference: Optional[str] = Field(
-        None, description="External reference or integration ID"
-    )
-    billing_address_same_as_shipping: Optional[bool] = Field(
-        None, description="Whether billing address mirrors shipping address"
-    )
 
-
-class OrderCreate(OrderBase):
+    currency: CurrencyEnum = Field(..., description="Currency of the order")
     subtotal_cents: int = Field(
         ..., description="Subtotal amount of the order in cents"
     )
@@ -46,21 +55,21 @@ class OrderCreate(OrderBase):
     discount_cents: int = Field(
         ..., description="Discount amount of the order in cents"
     )
+    total_cents: int = Field(..., description="Total amount of the order in cents")
 
-
-class OrderUpdate(BaseModel):
-    id: UUID = Field(..., description="Unique identifier of the order")
-    status: Optional[OrderStatusEnum] = Field(None, description="Status of the order")
-    total_cents: Optional[int] = Field(
-        None, description="Total amount of the order in cents"
+    shipping_address_id: Optional[UUID] = Field(
+        None, description="Unique identifier of the shipping address"
     )
-    version: Optional[int] = Field(
-        None, description="Expected current version for optimistic concurrency"
+    billing_address_id: Optional[UUID] = Field(
+        None, description="Unique identifier of the billing address"
+    )
+    billing_address_same_as_shipping: bool = Field(
+        ...,
+        description="Flag indicating if billing address is same as shipping address",
     )
 
+    status: OrderStatusEnum = Field(..., description="Status of the order")
 
-class OrderResponse(OrderBase):
-    id: UUID = Field(..., description="Unique identifier of the order")
     created_at: datetime = Field(..., description="Creation timestamp of the order")
     updated_at: datetime = Field(..., description="Last update timestamp of the order")
     placed_at: Optional[datetime] = Field(
@@ -75,22 +84,11 @@ class OrderResponse(OrderBase):
     canceled_at: Optional[datetime] = Field(
         None, description="Timestamp when the order was canceled"
     )
-    items: List["OrderItemBase"] = Field(..., description="List of items in the order")
-    subtotal_cents: int = Field(
-        ..., description="Subtotal amount of the order in cents"
-    )
-    tax_cents: int = Field(..., description="Tax amount of the order in cents")
-    discount_cents: int = Field(
-        ..., description="Discount amount of the order in cents"
-    )
+
     version: int = Field(
         ..., description="Version number for optimistic concurrency control"
     )
-    shipping_address: Optional["AddressResponse"] = Field(
-        None, description="Shipping address details"
+
+    items: List["OrderItemResponse"] = Field(
+        default=[], description="List of items in the order"
     )
-    billing_address: Optional["AddressResponse"] = Field(
-        None, description="Billing address details"
-    )
-    payment: Optional["PaymentResponse"] = Field(None, description="Payment details")
-    shipping: Optional["ShippingResponse"] = Field(None, description="Shipping details")

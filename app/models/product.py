@@ -3,11 +3,11 @@ from uuid import UUID
 from datetime import datetime
 from slugify import slugify
 from decimal import Decimal
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, ENUM as PGENUM
+from sqlalchemy.dialects.postgresql import UUID as PGUUID, ENUM as PGENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import event
 from datetime import timezone
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 
 from app.db.base import Base
 
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .product_media import ProductMedia
     from .product_variant import ProductVariant
     from .category import Category
+    from .cart_item import CartItem
 
 PRODUCT_STATUS_ENUM = PGENUM("draft", "active", "archived", name="product_status")
 
@@ -32,28 +33,38 @@ class Product(Base):
     is_variable: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     status: Mapped[str] = mapped_column(PRODUCT_STATUS_ENUM, index=True, server_default=sa.text("'draft'::product_status"), nullable=False)
     stock: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=sa.text("0"))
-    attributes: Mapped[dict] = mapped_column(sa.JSON, nullable=True)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now(), onupdate=sa.func.now())
     is_deleted: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
-    primary_image_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("media.id", ondelete="SET NULL"), nullable=True, index=True)
-    primary_image: Mapped["Media | None"] = relationship("Media", lazy="joined", foreign_keys=[primary_image_id])
     
+    primary_image_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("media.id", ondelete="SET NULL"), nullable=True, index=True)
+    primary_image: Mapped[Optional["Media"]] = relationship("Media", lazy="joined", foreign_keys=[primary_image_id])
+
+    category_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("categories.id", ondelete="SET NULL", name="fk_products_category_id_categories"), nullable=True, index=True)  
     category: Mapped[Optional["Category"]] = relationship("Category", back_populates="products", lazy="selectin")
-    category_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("categories.id", ondelete="SET NULL", name="fk_products_category_id_categories"), nullable=True, index=True)
     
-    media_associations: Mapped[list["ProductMedia"]] = relationship(
+    media_associations: Mapped[List["ProductMedia"]] = relationship(
         "ProductMedia", 
         back_populates="product",
         cascade="save-update, merge",
         lazy="selectin"
     )
-    variants: Mapped[list["ProductVariant"]] = relationship(
+    
+    images: Mapped[List["Media"]] = relationship(
+        "Media",
+        secondary="product_media",
+        viewonly=True,
+        lazy="selectin"
+    )
+    
+    variants: Mapped[List["ProductVariant"]] = relationship(
         "ProductVariant", 
         back_populates="product",
         passive_deletes=True, 
         lazy="selectin"
     )
+    cart_items: Mapped[List["CartItem"]] = relationship("CartItem", back_populates="product", lazy="selectin")
 
     def __repr__(self):
         return f"<Product(name={self.name}, sku={self.sku}, status={self.status})>"

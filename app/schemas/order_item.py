@@ -12,9 +12,12 @@ class OrderItemBase(BaseModel):
         None, description="Unique identifier of the product variant"
     )
     product_name: str = Field(..., description="Name of the product")
+    product_image_url: Optional[str] = Field(
+        None, description="URL of the product image"
+    )
     sku: str = Field(..., description="Stock Keeping Unit of the product")
-    unit_price_cents: int = Field(..., description="Unit price of the product in cents")
     quantity: int = Field(..., description="Quantity of the product ordered")
+    unit_price_cents: int = Field(..., description="Unit price of the product in cents")
     line_total_cents: int = Field(
         ..., description="Total line amount for this item in cents"
     )
@@ -25,7 +28,6 @@ class OrderItemCreate(OrderItemBase):
 
 
 class OrderItemUpdate(BaseModel):
-    id: UUID = Field(..., description="Unique identifier of the order item")
     quantity: Optional[int] = Field(None, description="Quantity of the product ordered")
 
 

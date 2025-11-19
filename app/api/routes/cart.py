@@ -78,7 +78,7 @@ async def checkout_cart(
             detail="Cannot checkout non-active cart",
         )
 
-    cart.status = CartStatus.completed
+    cart.status = CartStatus.COMPLETED
     try:
         db.add(cart)
         await db.commit()

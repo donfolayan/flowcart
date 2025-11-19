@@ -1,4 +1,5 @@
 from typing import Optional
+from decimal import Decimal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +18,8 @@ class Config(BaseSettings):
     CLOUDINARY_API_KEY: str = "your_cloudinary_api_key"
     CLOUDINARY_API_SECRET: Optional[str] = None
     APPLICATION_FOLDER: str = "flowcart_app"
+
+    TAX_RATE: Decimal = Decimal("0.1")
 
     model_config = SettingsConfigDict(
         env_file=".env",

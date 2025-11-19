@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .address import Address
     from .shipping import Shipping
     from .payment import Payment
+    from .cart import Cart
 
 class Order(Base):
     __tablename__ = "orders"
@@ -29,6 +30,7 @@ class Order(Base):
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
     cart_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("carts.id", ondelete="SET NULL"), nullable=True, index=True)
     user_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    session_id: Mapped[Optional[str]] = mapped_column(sa.String(128), nullable=True, index=True)
     currency: Mapped[CurrencyEnum] = mapped_column(sa.Enum(CurrencyEnum, name="currency_enum", create_type=False), server_default=sa.text("'USD'::currency_enum"), nullable=False)
     
     # Totals
@@ -62,6 +64,7 @@ class Order(Base):
     version: Mapped[int] = mapped_column(sa.Integer, server_default=sa.text("1"), nullable=False)
     
     # Relationships
+    cart: Mapped[Optional["Cart"]] = relationship("Cart", back_populates="order", lazy="selectin")
     items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan", lazy="selectin")
     shipping_address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys=[shipping_address_id], back_populates="shipping_orders", lazy="selectin")
     billing_address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys=[billing_address_id], back_populates="billing_orders", lazy="selectin")

@@ -9,6 +9,8 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from .order import Order
+    from .product import Product
+    from .product_variant import ProductVariant
     
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -16,6 +18,7 @@ class OrderItem(Base):
         sa.CheckConstraint("quantity > 0", name="ck_orderitem_quantity_positive"),
         sa.CheckConstraint("unit_price_cents >= 0", name="ck_orderitem_unit_price_non_negative"),
         sa.CheckConstraint("line_total_cents >= 0", name="ck_orderitem_line_total_non_negative"),
+        sa.Index("ix_orderitem_order_product_variant", "order_id", "product_id", "variant_id", unique=True),
     )
     
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
@@ -24,13 +27,20 @@ class OrderItem(Base):
     variant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True, index=True)
     product_name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     sku: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    product_image_url: Mapped[Optional[str]] = mapped_column(sa.String(500), nullable=True)
+
     unit_price_cents: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=sa.text("0"))
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default=sa.text("1"))
     line_total_cents: Mapped[int] = mapped_column(sa.Integer, sa.Computed("quantity * unit_price_cents", persisted=True), nullable=False)
     
     #relationship
     order: Mapped["Order"] = relationship("Order", back_populates="items", lazy="joined")
+    product: Mapped[Optional["Product"]] = relationship("Product", foreign_keys=[product_id], lazy="selectin")
+    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant", foreign_keys=[variant_id], lazy="selectin")
     
     # Audit fields
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
+    
+    def __repr__(self) -> str:
+        return f"<OrderItem id={self.id} product_name={self.product_name} quantity={self.quantity} unit_price_cents={self.unit_price_cents} total_cents={self.line_total_cents}>"

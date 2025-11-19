@@ -10,6 +10,8 @@ from app.enums.currency_enums import currency_enum, CurrencyEnum
 
 if TYPE_CHECKING:
     from .cart import Cart
+    from .product import Product
+    from .product_variant import ProductVariant
 
 class CartItem(Base):
     __tablename__ = "cart_items"
@@ -23,8 +25,8 @@ class CartItem(Base):
     cart_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("carts.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Product details
-    product_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
-    variant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True, index=True)
+    product_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("products.id", name="fk_cart_items_product_id", ondelete="RESTRICT"), nullable=False, index=True)
+    variant_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("product_variants.id", name="fk_cart_items_variant_id", ondelete="RESTRICT"), nullable=True, index=True)
     product_name: Mapped[str] = mapped_column(sa.String(255), nullable=False, index=True)
     product_snapshot: Mapped[dict] = mapped_column(sa.JSON, nullable=False)
     
@@ -42,6 +44,10 @@ class CartItem(Base):
     updated_at: Mapped[sa.DateTime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now(), onupdate=sa.func.now())
     
     cart: Mapped["Cart"] = relationship("Cart", back_populates="items")
+    
+    # Relationships
+    product: Mapped[Optional["Product"]] = relationship("Product", foreign_keys=[product_id], lazy="selectin")
+    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant", foreign_keys=[variant_id], lazy="selectin")
     
     def __repr__(self):
         return f"<CartItem(product_id={self.product_id}, quantity={self.quantity}, unit_price={self.unit_price}, line_total={self.line_total})>"
