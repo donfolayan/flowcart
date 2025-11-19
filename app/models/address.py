@@ -33,5 +33,5 @@ class Address(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
     
     # Relationships
-    shipping_orders: Mapped[List["Order"]] = relationship("Order", back_populates="shipping_address", foreign_keys="[Order.shipping_address_id]", lazy="selectin")
-    billing_orders: Mapped[List["Order"]] = relationship("Order", back_populates="billing_address", foreign_keys="[Order.billing_address_id]", lazy="selectin")
+    shipping_orders: Mapped[Optional[List["Order"]]] = relationship("Order", back_populates="shipping_address", foreign_keys="[Order.shipping_address_id]", lazy="selectin")
+    billing_orders: Mapped[Optional[List["Order"]]] = relationship("Order", back_populates="billing_address", foreign_keys="[Order.billing_address_id]", lazy="selectin")

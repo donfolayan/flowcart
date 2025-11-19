@@ -15,6 +15,7 @@ from app.api.routes import (
     product_media,
     cart,
     cart_items,
+    address,
 )
 
 HOST = config.HOST
@@ -41,6 +42,7 @@ api.include_router(upload.router)
 api.include_router(category.router)
 api.include_router(cart.router)
 api.include_router(cart_items.router)
+api.include_router(address.router)
 app.include_router(api)
 
 
