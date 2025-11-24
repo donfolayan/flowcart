@@ -12,6 +12,7 @@ from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
+from app.models.address import Address
 from app.enums.order_enums import OrderStatusEnum
 from app.enums.cart_enums import CartStatus
 
@@ -127,6 +128,50 @@ class OrderService:
         # Calculate total
         total_cents = subtotal_cents + tax_cents
 
+        # Fetch and serialize addresses for immutable snapshots
+        shipping_address: Optional[Address] = await self.db.get(
+            Address, shipping_address_id
+        )
+        if not shipping_address:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Shipping address not found",
+            )
+
+        if billing_address_same_as_shipping:
+            billing_address = shipping_address
+        else:
+            if not billing_address_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="billing_address_id required when billing_address_same_as_shipping is False",
+                )
+            billing_address = await self.db.get(Address, billing_address_id)
+            if not billing_address:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Billing address not found",
+                )
+
+        def _serialize_address(addr: Address) -> dict:
+            return {
+                "id": str(addr.id),
+                "name": addr.name,
+                "company": addr.company,
+                "line1": addr.line1,
+                "line2": addr.line2,
+                "city": addr.city,
+                "region": addr.region,
+                "postal_code": addr.postal_code,
+                "country": addr.country,
+                "phone": addr.phone,
+                "email": addr.email,
+                "extra": addr.extra or {},
+            }
+
+        shipping_snapshot = _serialize_address(shipping_address)
+        billing_snapshot = _serialize_address(billing_address)
+
         # Create order
         new_order = Order(
             cart_id=cart.id,
@@ -134,13 +179,15 @@ class OrderService:
             currency=cart.currency,
             subtotal_cents=subtotal_cents,
             tax_cents=tax_cents,
-            discount=0,  # TODO: Apply discount code logic
+            discount_cents=0,  # TODO: Apply discount code logic
             total_cents=total_cents,
             shipping_address_id=shipping_address_id,
             billing_address_id=billing_address_id
             if not billing_address_same_as_shipping
             else shipping_address_id,
             billing_address_same_as_shipping=billing_address_same_as_shipping,
+            shipping_address_snapshot=shipping_snapshot,
+            billing_address_snapshot=billing_snapshot,
             status=OrderStatusEnum.PENDING,
             placed_at=datetime.now(timezone.utc),
             idempotency_key=idempotency_key,
