@@ -271,3 +271,28 @@ class OrderService:
         await self.db.commit()
         await self.db.refresh(order)
         return order
+
+    async def get_session_orders(
+        self,
+        session_id: str,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> List[Order]:
+        """Retrieve orders for a specific session with pagination."""
+        if not session_id or len(session_id) < 4:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid session ID",
+            )
+
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.session_id == session_id)
+            .order_by(Order.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        orders = result.scalars().all()
+        return list(orders)

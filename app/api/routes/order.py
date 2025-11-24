@@ -79,16 +79,9 @@ async def get_user_orders(
             user_id=user_id, skip=skip, limit=limit
         )
     else:
-        # For guest users, query by session_id
-        stmt = (
-            select(Order)
-            .where(Order.session_id == session_id)
-            .order_by(Order.created_at.desc())
-            .offset(skip)
-            .limit(limit)
+        orders = await order_service.get_session_orders(
+            session_id=session_id, skip=skip, limit=limit
         )
-        result = await db.execute(stmt)
-        orders = result.scalars().all()
 
     return [OrderResponse.model_validate(order) for order in orders]
 

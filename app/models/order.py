@@ -25,8 +25,9 @@ class Order(Base):
         sa.CheckConstraint("total_cents >= 0", name="ck_order_total_non_negative"),
         sa.CheckConstraint("version >= 1", name="ck_order_version_positive"),
         sa.Index("ix_orders_idempotency_key_user_id", "idempotency_key", "user_id", unique=True, postgresql_where=sa.text("idempotency_key IS NOT NULL")),
+        sa.Index("ix_orders_idempotency_key_session_id", "idempotency_key", "session_id", unique=True, postgresql_where=sa.text("idempotency_key IS NOT NULL"))
     )
-        
+    
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
     cart_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("carts.id", ondelete="SET NULL"), nullable=True, index=True)
     user_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -43,11 +44,11 @@ class Order(Base):
     shipping_address_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("addresses.id", ondelete="SET NULL"), index=True, nullable=True)
     billing_address_same_as_shipping: Mapped[bool] = mapped_column(sa.Boolean(), nullable=False, server_default=sa.text("true"))
     billing_address_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True), sa.ForeignKey("addresses.id", ondelete="SET NULL"), index=True, nullable=True)
-    
+
     # Immutable snapshots of addresses at time of order
     shipping_address_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     billing_address_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    
+
     # Audit
     status: Mapped[OrderStatusEnum] = mapped_column(sa.Enum(OrderStatusEnum, name="order_status_enum", create_type=False), server_default=sa.text("'pending'::order_status_enum"), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now())
@@ -56,13 +57,13 @@ class Order(Base):
     fulfilled_at: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), index=True, nullable=True)
     canceled_at: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), index=True, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), index=True, server_default=sa.func.now(), onupdate=sa.func.now())
-    
+
     # Idempotency
     idempotency_key: Mapped[Optional[str]] = mapped_column(sa.String(128), nullable=True, unique=False)
     external_reference: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True, index=True)
 
     version: Mapped[int] = mapped_column(sa.Integer, server_default=sa.text("1"), nullable=False)
-    
+
     # Relationships
     cart: Mapped[Optional["Cart"]] = relationship("Cart", back_populates="order", lazy="selectin")
     items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan", lazy="selectin")
