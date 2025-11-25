@@ -24,6 +24,7 @@ class Order(Base):
         sa.CheckConstraint("discount_cents >= 0", name="ck_order_discount_non_negative"),
         sa.CheckConstraint("total_cents >= 0", name="ck_order_total_non_negative"),
         sa.CheckConstraint("version >= 1", name="ck_order_version_positive"),
+        sa.CheckConstraint("discount_cents <= subtotal_cents", name="ck_order_discount_not_exceed_subtotal"),
         sa.Index("ix_orders_idempotency_key_user_id", "idempotency_key", "user_id", unique=True, postgresql_where=sa.text("idempotency_key IS NOT NULL")),
         sa.Index("ix_orders_idempotency_key_session_id", "idempotency_key", "session_id", unique=True, postgresql_where=sa.text("idempotency_key IS NOT NULL"))
     )
