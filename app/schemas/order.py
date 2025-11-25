@@ -26,6 +26,9 @@ class OrderCreate(BaseModel):
     idempotency_key: Optional[str] = Field(
         None, description="Idempotency key to prevent duplicate orders", max_length=128
     )
+    promo_code: Optional[str] = Field(
+        None, description="Optional promo code to apply to this order", max_length=50
+    )
 
 
 class OrderUpdate(BaseModel):
@@ -91,4 +94,19 @@ class OrderResponse(BaseModel):
 
     items: List["OrderItemResponse"] = Field(
         default=[], description="List of items in the order"
+    )
+
+
+class OrderPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    subtotal_cents: int = Field(..., description="Subtotal amount in cents")
+    discount_cents: int = Field(..., description="Discount amount in cents")
+    tax_cents: int = Field(..., description="Tax amount in cents")
+    total_cents: int = Field(..., description="Total amount in cents")
+    applied_discounts_snapshot: Optional[dict] = Field(
+        None, description="Snapshot of applied discount computation"
+    )
+    items: List["OrderItemResponse"] = Field(
+        default=[], description="Line items for preview"
     )

@@ -14,7 +14,9 @@ from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.address import Address
 from app.enums.order_enums import OrderStatusEnum
+from app.services.promo import PromoService
 from app.enums.cart_enums import CartStatus
+from app.services.order_state import validate_transition_or_raise
 
 TAX_RATE = config.TAX_RATE
 
@@ -34,18 +36,30 @@ class OrderService:
         billing_address_id: Optional[UUID] = None,
         billing_address_same_as_shipping: bool = True,
         idempotency_key: Optional[str] = None,
+        promo_code: Optional[str] = None,
     ) -> Order:
         """Create order from cart."""
 
-        # Check for existing order with same idempotency key
+        # Check for existing order with same idempotency key (user or session)
         if idempotency_key:
-            stmt = (
-                select(Order)
-                .options(selectinload(Order.items))
-                .where(
-                    Order.user_id == user_id, Order.idempotency_key == idempotency_key
+            if user_id:
+                stmt = (
+                    select(Order)
+                    .options(selectinload(Order.items))
+                    .where(
+                        Order.user_id == user_id,
+                        Order.idempotency_key == idempotency_key,
+                    )
                 )
-            )
+            else:
+                stmt = (
+                    select(Order)
+                    .options(selectinload(Order.items))
+                    .where(
+                        Order.session_id == session_id,
+                        Order.idempotency_key == idempotency_key,
+                    )
+                )
             result = await self.db.execute(stmt)
             existing_order = result.scalar_one_or_none()
 
@@ -122,11 +136,23 @@ class OrderService:
                 }
             )
 
-        # Calculate tax
-        tax_cents = int(subtotal_cents * TAX_RATE)
+        # Apply promo code (if provided) and compute discount via PromoService
+        discount_cents = 0
+        applied_snapshot = None
+        promo_obj = None
+        if promo_code:
+            promo_service = PromoService(self.db)
+            promo_result = await promo_service.validate_and_compute(
+                promo_code, subtotal_cents, user_id
+            )
+            promo_obj = promo_result.get("promo")
+            discount_cents = promo_result.get("discount_cents", 0)
+            applied_snapshot = promo_result.get("snapshot")
 
-        # Calculate total
-        total_cents = subtotal_cents + tax_cents
+        # Calculate tax (after discount) and total
+        taxable = subtotal_cents - discount_cents
+        tax_cents = int(taxable * TAX_RATE)
+        total_cents = subtotal_cents - discount_cents + tax_cents
 
         # Fetch and serialize addresses for immutable snapshots
         shipping_address: Optional[Address] = await self.db.get(
@@ -179,8 +205,10 @@ class OrderService:
             currency=cart.currency,
             subtotal_cents=subtotal_cents,
             tax_cents=tax_cents,
-            discount_cents=0,  # TODO: Apply discount code logic
+            discount_cents=discount_cents,
             total_cents=total_cents,
+            promo_code=promo_code.strip().lower() if promo_code else None,
+            applied_discounts_snapshot=applied_snapshot,
             shipping_address_id=shipping_address_id,
             billing_address_id=billing_address_id
             if not billing_address_same_as_shipping
@@ -205,9 +233,84 @@ class OrderService:
         cart.status = CartStatus.COMPLETED
         cart.completed_at = datetime.now(timezone.utc)
 
+        # Atomically increment promo usage (if promo applied)
+        if promo_obj is not None:
+            promo_service = PromoService(self.db)
+            await promo_service.increment_usage_atomic(promo_obj.id)
+
         await self.db.commit()
         await self.db.refresh(new_order)
         return Order.model_validate(new_order)
+
+    async def preview_order(
+        self,
+        cart_id: UUID,
+        promo_code: Optional[str] = None,
+        user_id: Optional[UUID] = None,
+    ) -> dict:
+        """Compute a preview (subtotal, discount, tax, total, items) without persisting."""
+        # Fetch cart and items
+        stmt = (
+            select(Cart)
+            .options(selectinload(Cart.items).selectinload(CartItem.product))
+            .where(Cart.id == cart_id)
+        )
+        result = await self.db.execute(stmt)
+        cart = result.scalar_one_or_none()
+
+        if not cart:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
+            )
+
+        if not cart.items:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty"
+            )
+
+        subtotal_cents = 0
+        items = []
+        for cart_item in cart.items:
+            if not cart_item.product:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Product for cart item {cart_item.id} no longer available",
+                )
+            line_total_cents = cart_item.quantity * cart_item.product.price_cents
+            subtotal_cents += line_total_cents
+            items.append(
+                {
+                    "product_id": str(cart_item.product.id),
+                    "product_name": cart_item.product.name,
+                    "quantity": cart_item.quantity,
+                    "unit_price_cents": cart_item.product.price_cents,
+                    "total_price_cents": line_total_cents,
+                }
+            )
+
+        # Apply promo (reuse PromoService)
+        discount_cents = 0
+        applied_snapshot = None
+        if promo_code:
+            promo_service = PromoService(self.db)
+            promo_result = await promo_service.validate_and_compute(
+                promo_code, subtotal_cents, user_id
+            )
+            discount_cents = promo_result.get("discount_cents", 0)
+            applied_snapshot = promo_result.get("snapshot")
+
+        taxable = subtotal_cents - discount_cents
+        tax_cents = int(taxable * TAX_RATE)
+        total_cents = subtotal_cents - discount_cents + tax_cents
+
+        return {
+            "subtotal_cents": subtotal_cents,
+            "discount_cents": discount_cents,
+            "tax_cents": tax_cents,
+            "total_cents": total_cents,
+            "applied_discounts_snapshot": applied_snapshot,
+            "items": items,
+        }
 
     async def get_user_orders(
         self,
@@ -284,26 +387,11 @@ class OrderService:
                 detail="Order has been modified by another process. Please refresh and try again.",
             )
 
-        # Validadte status transition
-        # TODO: Add proper state machine validation
-
-        valid_transitions = {
-            OrderStatusEnum.PENDING: [OrderStatusEnum.PAID, OrderStatusEnum.CANCELLED],
-            OrderStatusEnum.AWAITING_PAYMENT: [
-                OrderStatusEnum.PAID,
-                OrderStatusEnum.CANCELLED,
-            ],
-            OrderStatusEnum.PAID: [OrderStatusEnum.FULFILLED, OrderStatusEnum.REFUNDED],
-            OrderStatusEnum.FULFILLED: [],
-            OrderStatusEnum.CANCELLED: [],
-            OrderStatusEnum.REFUNDED: [],
-        }
-
-        if new_status not in valid_transitions.get(order.status, []):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status transition from {order.status.value} to {new_status.value}",
-            )
+        # Validate via centralized state engine
+        try:
+            validate_transition_or_raise(order.status, new_status)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
         order.status = new_status
         order.version += 1

@@ -49,6 +49,9 @@ class Order(Base):
     # Immutable snapshots of addresses at time of order
     shipping_address_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     billing_address_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Promo fields
+    promo_code: Mapped[Optional[str]] = mapped_column(sa.String(50), nullable=True, index=True)
+    applied_discounts_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Audit
     status: Mapped[OrderStatusEnum] = mapped_column(sa.Enum(OrderStatusEnum, name="order_status_enum", create_type=False), server_default=sa.text("'pending'::order_status_enum"), nullable=False, index=True)

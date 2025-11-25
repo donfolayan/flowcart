@@ -10,6 +10,7 @@ from app.core.permissions import get_current_user_optional, require_admin
 from app.api.dependencies.session import get_or_create_session_id
 from app.models.order import Order
 from app.schemas.order import OrderCreate, OrderUpdate, OrderResponse
+from app.schemas.order import OrderPreviewResponse
 from app.services.order import OrderService
 from app.enums.order_enums import OrderStatusEnum
 
@@ -49,9 +50,30 @@ async def create_order_from_cart(
         billing_address_id=payload.billing_address_id,
         billing_address_same_as_shipping=payload.billing_address_same_as_shipping,
         idempotency_key=payload.idempotency_key,
+        promo_code=payload.promo_code,
     )
 
     return OrderResponse.model_validate(order)
+
+
+@router.post(
+    "/preview",
+    response_model=OrderPreviewResponse,
+    description="Preview order totals for a cart with optional promo code (does not persist).",
+)
+async def preview_order(
+    payload: OrderCreate,
+    user_id: Optional[UUID] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_session),
+) -> OrderPreviewResponse:
+    """Preview order calculations without creating an order."""
+    order_service = OrderService(db)
+
+    preview = await order_service.preview_order(
+        cart_id=payload.cart_id, promo_code=payload.promo_code, user_id=user_id
+    )
+
+    return OrderPreviewResponse.model_validate(preview)
 
 
 @router.get(
