@@ -18,11 +18,15 @@ jobs:
       PORT: ${{ secrets.PORT }}
       RELOAD: ${{ secrets.RELOAD }}
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-      DATABASE_URL: postgres+asyncpg://testuser:testpass123@localhost:5432/testdb
+      DATABASE_URL: postgresql+asyncpg://testuser:testpass123@localhost:5432/testdb
       JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
       REFRESH_TOKEN_EXPIRE_DAYS: ${{ secrets.REFRESH_TOKEN_EXPIRE_DAYS }}
-
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      APPLICATION_FOLDER: ${{ secrets.APPLICATION_FOLDER }}
+      TAX_RATE: ${{ secrets.TAX_RATE }}
       
     services:
       postgres:
