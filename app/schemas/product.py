@@ -48,9 +48,7 @@ class ProductBase(BaseModel):
         None, description="List of media IDs associated with the product"
     )
 
-    model_config = ConfigDict(
-        from_attributes=True, json_encoders={Decimal: lambda v: str(v)}
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductCreate(ProductBase):

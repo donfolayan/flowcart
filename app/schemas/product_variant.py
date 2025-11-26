@@ -32,9 +32,7 @@ class ProductVariantResponse(ProductVariantBase):
     media: Optional[List[ProductMediaResponse]] = Field(
         None, description="List of product media", alias="media_associations"
     )
-    model_config = ConfigDict(
-        from_attributes=True, json_encoders={Decimal: lambda v: str(v)}
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 ProductVariantResponse.model_rebuild()
