@@ -5,6 +5,7 @@ from typing import cast
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from fastapi import Response
 
@@ -258,3 +259,81 @@ async def test_create_product_calls_validate_media_and_add(monkeypatch):
 
     await product_routes.create_product(payload, resp, db=cast(AsyncSession, fake_db))
     assert called["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_create_product_slug_retry_on_integrity_error(monkeypatch):
+    """Simulate an IntegrityError on first commit to trigger slug retry logic."""
+    payload = ProductCreate.model_validate(
+        {
+            "name": "p-slug",
+            "slug": "p-slug",
+            "is_variable": False,
+            "base_price": 10,
+        }
+    )
+    resp = Response()
+
+    # prepare a single mutable product instance that will be returned by Product()
+    fake_product = SimpleNamespace(
+        name="p-slug",
+        slug="p-slug",
+        variants=[],
+        status="draft",
+        is_variable=False,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        id=uuid4(),
+    )
+
+    # product factory returns the same fake_product instance so route can update slug on retry
+    def prod_factory(**kwargs):
+        return fake_product
+
+    # Fake DB that raises IntegrityError on first commit, then succeeds
+    class FakeDBCommitOnce(FakeDB):
+        def __init__(self, execute_result=None):
+            super().__init__(execute_result=execute_result)
+            self._commit_calls = 0
+
+        async def commit(self):
+            if self._commit_calls == 0:
+                self._commit_calls += 1
+                # IntegrityError(signature) - message must contain 'slug' and 'unique' to match route fallback
+                # pass a real exception as `orig` to satisfy type-checkers (Pylance)
+                raise IntegrityError(
+                    "slug unique constraint", None, Exception("slug unique")
+                )
+            self.committed = True
+
+        async def rollback(self):
+            # track rollback calls as before
+            self.rolled_back = True
+
+    monkeypatch.setattr(product_routes, "Product", prod_factory)
+    monkeypatch.setattr(product_routes, "selectinload", lambda *a, **k: DummyLoad())
+    monkeypatch.setattr(product_routes, "select", lambda *a, **k: DummySelect())
+    monkeypatch.setattr(product_routes, "delete", lambda *a, **k: DummySelect())
+    prod_factory.id = DummyCol("id")  # type: ignore[attr-defined]
+    prod_factory.variants = DummyCol("variants")  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        product_routes,
+        "ProductVariant",
+        SimpleNamespace(media_associations=DummyCol("media_associations")),
+    )
+    monkeypatch.setattr(
+        product_routes,
+        "ProductMedia",
+        SimpleNamespace(media=DummyCol("media"), product_id=DummyCol("product_id")),
+    )
+
+    fake_db = FakeDBCommitOnce(execute_result=DummyRes(fake_product))
+
+    result = await product_routes.create_product(
+        payload, resp, db=cast(AsyncSession, fake_db)
+    )
+
+    # The route should have retried and modified the slug (base prefix before last '-' preserved)
+    assert result.slug is not None
+    assert result.slug != "p-slug"
+    assert result.slug.startswith("p-")
