@@ -30,12 +30,12 @@ class StubAddress:
             except Exception:
                 self.id = 1
         # fill timestamps and minimal required fields if missing
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         if not getattr(self, "created_at", None):
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
         if not getattr(self, "updated_at", None):
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
         if not getattr(self, "postal_code", None):
             self.postal_code = getattr(self, "postal_code", "00000")
         if not getattr(self, "country", None):
