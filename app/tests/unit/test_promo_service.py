@@ -3,10 +3,11 @@ from types import SimpleNamespace
 from datetime import datetime, timezone, timedelta
 import pytest
 from fastapi import HTTPException
+from uuid import uuid4
 
 from app.services.promo import PromoService
 from app.enums.promo_enum import PromoTypeEnum
-from typing import cast
+from typing import cast, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.promo_code import PromoCode
 
@@ -123,3 +124,119 @@ async def test_increment_usage_atomic_success_and_failure(monkeypatch):
 
     with pytest.raises(HTTPException):
         await svc_fail.increment_usage_atomic(promo_id=1)
+
+
+def test_compute_percentage_missing_basis_raises():
+    svc = PromoService(db=cast(AsyncSession, None))
+    promo = SimpleNamespace(
+        promo_type=PromoTypeEnum.PERCENTAGE,
+        percent_basis_points=None,
+        value_cents=None,
+        max_discount_cents=None,
+    )
+
+    with pytest.raises(HTTPException):
+        svc._compute_discount(cast(PromoCode, promo), subtotal_cents=10000)
+
+
+@pytest.mark.asyncio
+async def test_validate_and_compute_various_failure_branches():
+    now = datetime.now(timezone.utc)
+
+    async def run_with(promo_obj, db_exec=None, user_id=None, subtotal=1000):
+        svc = PromoService(db=cast(AsyncSession, db_exec or DummyDB()))
+
+        async def fake_get(code):
+            return promo_obj
+
+        svc.get_by_code = fake_get
+        with pytest.raises(HTTPException):
+            await svc.validate_and_compute(
+                code=promo_obj.code, subtotal_cents=subtotal, user_id=user_id
+            )
+
+    # not active
+    promo_na = SimpleNamespace(
+        id=1,
+        code="NA",
+        promo_type=PromoTypeEnum.FIXED_AMOUNT,
+        value_cents=100,
+        percent_basis_points=None,
+        max_discount_cents=None,
+        is_active=False,
+        starts_at=None,
+        ends_at=None,
+        min_subtotal_cents=None,
+        per_user_limit=None,
+        usage_limit=None,
+        usage_count=0,
+        applies_to_user_ids=None,
+    )
+    await run_with(promo_na)
+
+    # not started
+    promo_ns = SimpleNamespace(
+        **{**promo_na.__dict__, "is_active": True, "starts_at": now + timedelta(days=1)}
+    )
+    await run_with(promo_ns)
+
+    # expired
+    promo_ex = SimpleNamespace(
+        **{
+            **promo_na.__dict__,
+            "is_active": True,
+            "starts_at": now - timedelta(days=2),
+            "ends_at": now - timedelta(days=1),
+        }
+    )
+    await run_with(promo_ex)
+
+    # min subtotal not met
+    promo_min = SimpleNamespace(
+        **{
+            **promo_na.__dict__,
+            "is_active": True,
+            "starts_at": now - timedelta(days=1),
+            "ends_at": now + timedelta(days=1),
+            "min_subtotal_cents": 2000,
+        }
+    )
+    await run_with(promo_min, subtotal=1000)
+
+    # per-user limit requires auth
+    promo_pul = SimpleNamespace(
+        **{**promo_na.__dict__, "is_active": True, "per_user_limit": 1}
+    )
+    await run_with(promo_pul, user_id=None)
+
+    # per-user limit reached (db returns count >= limit)
+    db_count = DummyDB(execute_result=DummyResult(1))
+    promo_pul2 = SimpleNamespace(
+        **{**promo_na.__dict__, "is_active": True, "per_user_limit": 1}
+    )
+    svc = PromoService(db=cast(AsyncSession, db_count))
+
+    async def fake_get2(code):
+        return promo_pul2
+
+    cast(Any, svc).get_by_code = fake_get2
+    with pytest.raises(HTTPException):
+        await svc.validate_and_compute(
+            code=promo_pul2.code, subtotal_cents=1000, user_id=uuid4()
+        )
+
+    # usage limit reached
+    promo_ul = SimpleNamespace(
+        **{**promo_na.__dict__, "is_active": True, "usage_limit": 1, "usage_count": 1}
+    )
+    await run_with(promo_ul)
+
+    # user targeting not eligible
+    promo_ut = SimpleNamespace(
+        **{
+            **promo_na.__dict__,
+            "is_active": True,
+            "applies_to_user_ids": [str(uuid4())],
+        }
+    )
+    await run_with(promo_ut, user_id=uuid4())

@@ -169,3 +169,85 @@ async def test_preview_order_missing_product_raises():
 
     with pytest.raises(HTTPException):
         await svc.preview_order(cart.id)
+
+
+@pytest.mark.asyncio
+async def test_create_order_idempotency_returns_existing():
+    # when idempotency key present and order exists, should return it
+    existing = SimpleNamespace(id=uuid4(), items=[])
+    db = DummyDB(execute_result=DummyResult(existing))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    res = await svc.create_order_from_cart(
+        cart_id=uuid4(),
+        shipping_address_id=uuid4(),
+        user_id=uuid4(),
+        idempotency_key="key-123",
+    )
+    assert res == existing
+
+
+@pytest.mark.asyncio
+async def test_create_order_cart_not_found_raises():
+    db = DummyDB(execute_result=DummyResult(None))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    with pytest.raises(HTTPException):
+        await svc.create_order_from_cart(
+            cart_id=uuid4(), shipping_address_id=uuid4(), user_id=uuid4()
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_order_cart_belongs_to_other_user_raises():
+    cart = make_cart(items=[make_cart_item(product=make_product())], user_id=uuid4())
+    db = DummyDB(execute_result=DummyResult(cart))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    with pytest.raises(HTTPException):
+        await svc.create_order_from_cart(
+            cart_id=cart.id, shipping_address_id=uuid4(), user_id=uuid4()
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_order_cart_not_active_raises():
+    # use simple object with .value to mimic enum-like status used in error message
+    cart = make_cart(
+        items=[make_cart_item(product=make_product())],
+        status=SimpleNamespace(value="completed"),
+    )
+    db = DummyDB(execute_result=DummyResult(cart))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    with pytest.raises(HTTPException):
+        await svc.create_order_from_cart(
+            cart_id=cart.id, shipping_address_id=uuid4(), user_id=cart.user_id
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_order_empty_cart_raises():
+    # ensure status is active so we reach the empty-cart check
+    cart = make_cart(items=[], status=SimpleNamespace(value="active"))
+    db = DummyDB(execute_result=DummyResult(cart))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    with pytest.raises(HTTPException):
+        await svc.create_order_from_cart(
+            cart_id=cart.id, shipping_address_id=uuid4(), user_id=cart.user_id
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_order_missing_product_in_item_raises():
+    # ensure status is active so we reach the missing-product check
+    ci = make_cart_item(product=None)
+    cart = make_cart(items=[ci], status=SimpleNamespace(value="active"))
+    db = DummyDB(execute_result=DummyResult(cart))
+    svc = OrderService(db=cast(AsyncSession, db))
+
+    with pytest.raises(HTTPException):
+        await svc.create_order_from_cart(
+            cart_id=cart.id, shipping_address_id=uuid4(), user_id=cart.user_id
+        )

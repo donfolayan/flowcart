@@ -1,6 +1,6 @@
 import pytest
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import cast
 from uuid import uuid4
 from fastapi import HTTPException, Response
@@ -111,8 +111,8 @@ async def test_get_product_by_id_found(monkeypatch):
         name="X",
         slug="x",
         variants=[],
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     fake_db = FakeDB(execute_result=DummyRes(p))
     res = await product_routes.get_product_by_id(p.id, db=cast(AsyncSession, fake_db))
@@ -128,8 +128,8 @@ async def test_list_all_products_returns_list(monkeypatch):
         name="Y",
         slug="y",
         variants=[],
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     fake_db = FakeDB(execute_result=DummyRes([p]))
     res = await product_routes.list_all_products(

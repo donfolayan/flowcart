@@ -126,8 +126,8 @@ async def test_create_product_success(monkeypatch):
         base.setdefault("variants", [])
         base.setdefault("status", "draft")
         base.setdefault("is_variable", False)
-        base.setdefault("created_at", datetime.utcnow())
-        base.setdefault("updated_at", datetime.utcnow())
+        base.setdefault("created_at", datetime.now(timezone.utc))
+        base.setdefault("updated_at", datetime.now(timezone.utc))
         base.setdefault("id", uuid4())
         return SimpleNamespace(**base)
 
@@ -231,8 +231,8 @@ async def test_create_product_calls_validate_media_and_add(monkeypatch):
         base.setdefault("variants", [])
         base.setdefault("status", "draft")
         base.setdefault("is_variable", False)
-        base.setdefault("created_at", datetime.utcnow())
-        base.setdefault("updated_at", datetime.utcnow())
+        base.setdefault("created_at", datetime.now(timezone.utc))
+        base.setdefault("updated_at", datetime.now(timezone.utc))
         base.setdefault("id", uuid4())
         return SimpleNamespace(**base)
 
@@ -281,8 +281,8 @@ async def test_create_product_slug_retry_on_integrity_error(monkeypatch):
         variants=[],
         status="draft",
         is_variable=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         id=uuid4(),
     )
 

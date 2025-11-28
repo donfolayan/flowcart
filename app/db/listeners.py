@@ -41,12 +41,12 @@ def populate_order_address_snapshots(
         if obj.shipping_address_snapshot is None and obj.shipping_address is not None:
             obj.shipping_address_snapshot = _address_to_snapshot(obj.shipping_address)
         if obj.billing_address_same_as_shipping:
-            # Mirror shipping snapshot
+            # Mirror shipping snapshot (make a shallow copy to avoid aliasing)
             if (
                 obj.billing_address_snapshot is None
                 and obj.shipping_address_snapshot is not None
             ):
-                obj.billing_address_snapshot = obj.shipping_address_snapshot
+                obj.billing_address_snapshot = dict(obj.shipping_address_snapshot)
         else:
             if obj.billing_address_snapshot is None and obj.billing_address is not None:
                 obj.billing_address_snapshot = _address_to_snapshot(obj.billing_address)
@@ -61,7 +61,12 @@ def populate_order_address_snapshots(
                 )
             if obj.billing_address_snapshot is None:
                 if obj.billing_address_same_as_shipping:
-                    obj.billing_address_snapshot = obj.shipping_address_snapshot
+                    # copy to ensure snapshots are independent
+                    obj.billing_address_snapshot = (
+                        dict(obj.shipping_address_snapshot)
+                        if obj.shipping_address_snapshot is not None
+                        else None
+                    )
                 elif obj.billing_address is not None:
                     obj.billing_address_snapshot = _address_to_snapshot(
                         obj.billing_address

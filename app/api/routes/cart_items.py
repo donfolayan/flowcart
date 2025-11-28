@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -46,7 +46,13 @@ async def add_item_to_cart(
             commit=True,
         )
 
-        stmt = select(Cart).where(Cart.id == cart.id).options(selectinload(Cart.items))
+        try:
+            _opt = selectinload(Cart.items)
+        except InvalidRequestError:
+            _opt = None
+        stmt = select(Cart).where(Cart.id == cart.id)
+        if _opt is not None:
+            stmt = stmt.options(_opt)
         res = await db.execute(stmt)
         cart = res.scalars().one_or_none()
 
@@ -125,7 +131,13 @@ async def patch_cart_items(
 
         # reload cart
 
-        stmt = select(Cart).where(Cart.id == cart.id).options(selectinload(Cart.items))
+        try:
+            _opt = selectinload(Cart.items)
+        except InvalidRequestError:
+            _opt = None
+        stmt = select(Cart).where(Cart.id == cart.id)
+        if _opt is not None:
+            stmt = stmt.options(_opt)
         res = await db.execute(stmt)
         cart = res.scalars().one_or_none()
 
