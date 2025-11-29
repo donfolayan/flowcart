@@ -11,6 +11,7 @@ from app.enums.currency_enums import currency_enum, CurrencyEnum
 
 if TYPE_CHECKING:
     from .cart_item import CartItem
+    from .order import Order
 
 class Cart(Base):
     __tablename__ = "carts"
@@ -42,7 +43,7 @@ class Cart(Base):
     version: Mapped[int] = mapped_column(sa.Integer, server_default=sa.text("1"), nullable=False)
     
     items: Mapped[list["CartItem"]] = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan", lazy="selectin")
-    
+    order: Mapped[Optional["Order"]] = relationship("Order", back_populates="cart", uselist=False, lazy="selectin")
     __mapper_args__ = {
         "version_id_col": version
     }

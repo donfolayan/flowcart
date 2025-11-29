@@ -21,6 +21,7 @@ from app.api.routes import (
     address,
     order,
     payment,
+    stripe_webhook,
 )
 
 HOST = config.HOST
@@ -52,6 +53,7 @@ api.include_router(cart_items.router)
 api.include_router(address.router)
 api.include_router(order.router)
 api.include_router(payment.router)
+api.include_router(stripe_webhook.router)
 app.include_router(api)
 
 

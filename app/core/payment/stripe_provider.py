@@ -71,6 +71,7 @@ class StripeProvider(PaymentProvider):
         description: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         capture: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Create (and optionally confirm/capture) a PaymentIntent.
@@ -86,6 +87,8 @@ class StripeProvider(PaymentProvider):
             }
             if description:
                 kwargs["description"] = description
+            if metadata:
+                kwargs["metadata"] = metadata
             # idempotency_key is passed via request_options to stripe-python
             request_options = (
                 {"idempotency_key": idempotency_key} if idempotency_key else None
@@ -115,6 +118,7 @@ class StripeProvider(PaymentProvider):
         payment_method_data: Dict[str, Any],
         description: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         return await self.charge(
             amount_cents=amount_cents,
@@ -123,6 +127,7 @@ class StripeProvider(PaymentProvider):
             description=description,
             idempotency_key=idempotency_key,
             capture=False,
+            metadata=metadata,
         )
 
     async def capture(
@@ -228,7 +233,12 @@ class StripeProvider(PaymentProvider):
                 if (event is not None and hasattr(event, "to_dict"))
                 else (dict(event) if isinstance(event, dict) else None)
             )
-            return {"type": etype, "data": data_dict, "raw": raw_event}
+            return {
+                "type": etype,
+                "object": data_dict,
+                "data": {"object": data_dict} if data_dict is not None else {},
+                "raw": raw_event,
+            }
         except StripeError as e:
             raise PaymentError(
                 f"Stripe webhook verification failed: {e.user_message or str(e)}"

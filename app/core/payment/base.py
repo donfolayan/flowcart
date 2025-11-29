@@ -16,6 +16,7 @@ class PaymentProvider(ABC):
         description: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         capture: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Create a charge or payment intent."""
         raise NotImplementedError
@@ -28,6 +29,7 @@ class PaymentProvider(ABC):
         payment_method_data: Dict[str, Any],
         description: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Authorize a payment without capturing funds."""
         raise NotImplementedError
