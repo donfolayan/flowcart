@@ -23,7 +23,9 @@ class Config(BaseSettings):
 
     STRIPE_API_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
+
     PAYMENT_PROVIDER: str = "stripe"
+    STORAGE_PROVIDER: str = "cloudinary"
 
     model_config = SettingsConfigDict(
         env_file=".env",

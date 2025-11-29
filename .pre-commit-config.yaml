@@ -34,5 +34,5 @@ repos:
           - "python-multipart"
           - "pydantic-settings"
           - "passlib"
-
+          - "stripe"
           

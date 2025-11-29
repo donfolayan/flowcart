@@ -13,7 +13,7 @@ from app.core.config import config
 from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.core.security import get_current_user
-from app.core.registry import get_provider
+from app.core.registry import get_storage_provider
 from app.core.storage.cloudinary_provider import CloudinaryProvider
 from app.schemas.media import MediaResponse
 from app.models.media import Media
@@ -40,7 +40,7 @@ async def upload_stream(
         FOLDER, description="Cloudinary folder to upload the file to"
     ),
 ) -> MediaResponse:
-    provider = get_provider("cloudinary")
+    provider = get_storage_provider("cloudinary")
     if provider is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -109,7 +109,7 @@ async def delete_media(media_id: str, db: AsyncSession = Depends(get_session)) -
         await db.commit()
         return
 
-    provider = get_provider(media.provider)
+    provider = get_storage_provider(media.provider)
     public_id = media.provider_public_id
     resource_type = (
         media.provider_metadata.get("resource_type")
