@@ -14,7 +14,7 @@ if STRIPE_API_KEY:
     try:
         stripe.api_key = STRIPE_API_KEY
     except Exception:
-        pass
+        stripe.api_key = None
 
 
 class StripeProvider(PaymentProvider):

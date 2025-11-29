@@ -14,7 +14,6 @@ from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.core.security import get_current_user
 from app.core.registry import get_storage_provider
-from app.core.storage.cloudinary_provider import CloudinaryProvider
 from app.schemas.media import MediaResponse
 from app.models.media import Media
 from logging import getLogger
@@ -22,13 +21,14 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 FOLDER = config.APPLICATION_FOLDER
+STORAGE_PROVIDER = config.STORAGE_PROVIDER
 
 router = APIRouter(prefix="/media", tags=["Upload"])
 
 
 @router.post(
     "/upload",
-    description="Upload a media file to a storage server (Cloudinary) and create media record.",
+    description="Upload a media file to a storage server and create media record.",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_admin)],
 )
@@ -36,11 +36,9 @@ async def upload_stream(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_session),
     current_user: Any = Depends(get_current_user),
-    folder: Optional[str] = Query(
-        FOLDER, description="Cloudinary folder to upload the file to"
-    ),
+    folder: Optional[str] = Query(FOLDER, description="Folder to upload the file to"),
 ) -> MediaResponse:
-    provider = get_storage_provider("cloudinary")
+    provider = get_storage_provider(STORAGE_PROVIDER)
     if provider is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -62,11 +60,11 @@ async def upload_stream(
             detail=f"File upload failed: {str(e)}",
         ) from e
 
-    file_url = result.get("secure_url") or result.get("url")
+    file_url = result.get("url")
     public_id = result.get("public_id")
     resource_type = result.get("resource_type", "unknown")
     provider_raw = result.get("raw") or result
-    content_type = result.get("content_type")
+    content_type = file.content_type
 
     size_from_provider = None
     if isinstance(provider_raw, dict):
@@ -77,7 +75,7 @@ async def upload_stream(
         alt_text=file.filename,
         mime_type=content_type or "application/octet-stream",
         uploaded_by=current_user.id,
-        provider=CloudinaryProvider.name,
+        provider=STORAGE_PROVIDER,
         provider_public_id=public_id,
         provider_metadata={
             "resource_type": resource_type,
