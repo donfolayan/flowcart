@@ -20,6 +20,7 @@ from app.api.routes import (
     cart_items,
     address,
     order,
+    payment,
 )
 
 HOST = config.HOST
@@ -50,6 +51,7 @@ api.include_router(cart.router)
 api.include_router(cart_items.router)
 api.include_router(address.router)
 api.include_router(order.router)
+api.include_router(payment.router)
 app.include_router(api)
 
 
