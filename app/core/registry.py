@@ -1,7 +1,8 @@
 from typing import Dict
-from .cloudinary_provider import CloudinaryProvider
+from .storage.cloudinary_provider import CloudinaryProvider
+from .storage.base import StorageProvider
 
-PROVIDERS: Dict[str, CloudinaryProvider] = {}
+PROVIDERS: Dict[str, StorageProvider] = {}
 
 
 def register_providers():

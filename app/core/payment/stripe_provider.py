@@ -1,10 +1,11 @@
-import asyncio
-from typing import Optional, Dict, Any, Callable
 import stripe
+import asyncio
 from stripe import StripeError
-
+from .base import PaymentProvider
 from app.core.config import config
 from .payment_error import PaymentError
+from typing import Optional, Dict, Any, Callable
+
 
 STRIPE_API_KEY = config.STRIPE_API_KEY
 STRIPE_WEBHOOK_SECRET = config.STRIPE_WEBHOOK_SECRET
@@ -16,7 +17,7 @@ if STRIPE_API_KEY:
         pass
 
 
-class StripeProvider:
+class StripeProvider(PaymentProvider):
     """
     Minimal Stripe provider for PaymentIntent flows (create/authorize/capture/refund/cancel)
     - `amount_cents` must be integer in smallest currency unit (e.g., cents).

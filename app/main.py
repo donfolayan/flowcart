@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from typing import Dict
 from app.core.config import config
-from app.core.storage.registry import register_providers
+from app.core.registry import register_providers
 from app.db.listeners import register_listeners
 from contextlib import asynccontextmanager
 from app.api.routes import (

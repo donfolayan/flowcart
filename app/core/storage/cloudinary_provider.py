@@ -1,9 +1,11 @@
 import asyncio
 import cloudinary
 import cloudinary.uploader
+
+from io import BytesIO
+from .base import StorageProvider
 from app.core.config import config
 from typing import Any, Dict, Union, BinaryIO, Optional
-from io import BytesIO
 
 CLOUDINARY_CLOUD_NAME = config.CLOUDINARY_CLOUD_NAME
 CLOUDINARY_API_KEY = config.CLOUDINARY_API_KEY
@@ -18,7 +20,7 @@ cloudinary.config(
 )
 
 
-class CloudinaryProvider:
+class CloudinaryProvider(StorageProvider):
     name = "cloudinary"
 
     async def upload_file(
