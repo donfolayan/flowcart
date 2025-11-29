@@ -21,6 +21,10 @@ class Config(BaseSettings):
 
     TAX_RATE: Decimal = Decimal("0.1")
 
+    STRIPE_API_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    PAYMENT_PROVIDER: str = "stripe"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

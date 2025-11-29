@@ -28,6 +28,7 @@ dependencies = [
     "slugify>=0.0.1",
     "sqlalchemy[asyncio]>=2.0.44",
     "sqlmodel>=0.0.27",
+    "stripe>=14.0.1",
     "uvicorn>=0.37.0",
 ]
 
