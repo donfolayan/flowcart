@@ -26,6 +26,17 @@ class PromoCode(Base):
         sa.CheckConstraint("usage_limit IS NULL OR usage_count <= usage_limit", name="ck_promocode_usage_within_limit"),
         sa.CheckConstraint("starts_at IS NULL OR ends_at IS NULL OR starts_at < ends_at", name="ck_promocode_valid_timeframe"),
         sa.CheckConstraint("ends_at IS NULL OR ends_at > now()", name="ck_promocode_ends_at_future"),
+        sa.Index(
+            "ix_promocode_active_time",
+            "code",
+            "is_active",
+            "starts_at",
+            "ends_at",
+            postgresql_where=sa.text("is_active = true"),
+        ),
+        sa.Index("ix_promocode_code_ci", sa.text("LOWER(code)"), unique=True),
+        sa.Index("ix_promocode_product_ids_gin", "applies_to_product_ids", postgresql_using="gin"),
+        sa.Index("ix_promocode_user_ids_gin", "applies_to_user_ids", postgresql_using="gin"),
     )
     
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()"))
