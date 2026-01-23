@@ -119,7 +119,9 @@ async def stripe_webhook(
                 extra={
                     "payment_id": str(payment.id),
                     "order_id": str(payment.order_id) if payment.order_id else None,
-                    "amount": str(payment.amount) if hasattr(payment, "amount") else None,
+                    "amount": str(payment.amount)
+                    if hasattr(payment, "amount")
+                    else None,
                 },
             )
 
@@ -142,7 +144,38 @@ async def stripe_webhook(
                 },
             )
 
-        # You can add handling for refund events here later
+        elif event_type == "payment_intent.canceled":
+            payment.status = PaymentStatusEnum.CANCELLED
+            logger.info(
+                "Payment cancelled",
+                extra={
+                    "payment_id": str(payment.id),
+                    "order_id": str(payment.order_id) if payment.order_id else None,
+                },
+            )
+
+        elif event_type == "charge.refunded":
+            payment.status = PaymentStatusEnum.REFUNDED
+            logger.info(
+                "Payment refunded",
+                extra={
+                    "payment_id": str(payment.id),
+                    "order_id": str(payment.order_id) if payment.order_id else None,
+                },
+            )
+
+        elif event_type == "payment_intent.amount_capturable_updated":
+            amount_capturable = stripe_object.get("amount_capturable")
+            if amount_capturable is not None:
+                payment.amount_capturable = amount_capturable
+                logger.info(
+                    "Payment amount capturable updated",
+                    extra={
+                        "payment_id": str(payment.id),
+                        "order_id": str(payment.order_id) if payment.order_id else None,
+                        "amount_capturable": str(amount_capturable),
+                    },
+                )
 
         await db.commit()
     except Exception:
