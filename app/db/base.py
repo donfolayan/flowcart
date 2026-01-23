@@ -5,6 +5,12 @@ from sqlalchemy.orm import declarative_base
 DATABASE_URL = config.DATABASE_URL
 
 # Create async SQLAlchemy engine
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False, #handled by logging config
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
 
 Base = declarative_base(cls=AsyncAttrs)

@@ -1,44 +1,52 @@
 import uvicorn
-import logging
-from fastapi import FastAPI, APIRouter, Request, HTTPException
+from typing import Dict
+from contextlib import asynccontextmanager
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from typing import Dict
-from app.core.config import config
-from app.core.registry import register_providers
-from app.db.listeners import register_listeners
-from contextlib import asynccontextmanager
+
 from app.api.routes import (
+    address,
     auth,
-    product,
-    variants,
-    media,
-    upload,
-    category,
-    product_media,
     cart,
     cart_items,
-    address,
+    category,
+    media,
     order,
     payment,
+    product,
+    product_media,
     stripe_webhook,
+    upload,
+    variants,
 )
+from app.core.config import config
+from app.core.logging import setup_logging
+from app.core.registry import register_providers
+from app.db.listeners import register_listeners
+from app.db.logging import setup_db_logging
+from app.core.logging_utils import RequestIdMiddleware, get_logger
 
-HOST = config.HOST
-PORT = config.PORT
-RELOAD = config.RELOAD
+setup_logging()
+setup_db_logging()
 
-logger = logging.getLogger(__name__)
+logger = get_logger("app")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting up Flowcart application")
     register_providers()
     register_listeners()
     yield
+    logger.info("Shutting down Flowcart application")
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Add request ID middleware for tracing
+app.add_middleware(RequestIdMiddleware)
+
 api = APIRouter(prefix="/api/v1")
 
 api.include_router(auth.router)
@@ -64,7 +72,14 @@ def read_root() -> Dict[str, str]:
 
 @app.exception_handler(Exception)
 async def handle_unhandled_exception(request: Request, exc: Exception):
-    logger.exception("Unhandled exception: %s", exc)
+    logger.exception(
+        "Unhandled exception",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "client_host": request.client.host if request.client else None,
+        },
+    )
     from app.core.errors import ErrorResponse
 
     payload = ErrorResponse(
@@ -75,6 +90,14 @@ async def handle_unhandled_exception(request: Request, exc: Exception):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.warning(
+        "Request validation failed",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "errors": exc.errors(),
+        },
+    )
     from app.core.errors import ErrorResponse
 
     details = {"errors": exc.errors()}
@@ -87,6 +110,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Normalize all HTTPException details into the ErrorResponse JSON shape."""
+    logger.warning(
+        "HTTP exception",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+        },
+    )
     from app.core.errors import ErrorResponse
 
     detail = exc.detail
@@ -110,4 +142,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host=HOST, port=PORT, reload=RELOAD)
+    uvicorn.run(
+        "app.main:app", host=config.HOST, port=config.PORT, reload=config.RELOAD
+    )

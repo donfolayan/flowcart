@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.api.dependencies.logging import get_logger
 from app.core.payment.stripe_provider import StripeProvider
 from app.core.payment.payment_error import PaymentError
 from app.db.session import get_session
@@ -15,6 +17,7 @@ from app.enums.payment_status_enums import PaymentStatusEnum
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 provider = StripeProvider()
+logger = get_logger("app.webhooks")
 
 
 @router.post("/stripe")
@@ -34,7 +37,10 @@ async def stripe_webhook(
     try:
         event = await provider.handle_webhook(payload, sig_header)
     except PaymentError as e:
-        print("Stripe webhook error during verification:", repr(e))
+        logger.error(
+            "Stripe webhook signature verification failed",
+            extra={"error": str(e), "error_type": type(e).__name__},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -48,6 +54,10 @@ async def stripe_webhook(
 
     if not isinstance(stripe_object, dict):
         # Nothing to link to in DB, just ack
+        logger.info(
+            "Stripe webhook received but no object to process",
+            extra={"event_type": event_type},
+        )
         return {"received": True}
 
     payment_intent_id = stripe_object.get("id")
@@ -60,7 +70,14 @@ async def stripe_webhook(
         except (ValueError, TypeError):
             order_uuid = None
 
-    print("Stripe webhook event:", event_type, "payment_intent_id:", payment_intent_id)
+    logger.info(
+        "Processing Stripe webhook",
+        extra={
+            "event_type": event_type,
+            "payment_intent_id": payment_intent_id,
+            "order_id": str(order_uuid) if order_uuid else None,
+        },
+    )
 
     if not payment_intent_id:
         return {"received": True}
@@ -85,12 +102,28 @@ async def stripe_webhook(
                 payment.order_id = order_uuid
 
     if not payment:
-        print("No Payment found for provider_id:", payment_intent_id)
+        logger.warning(
+            "No payment record found for Stripe webhook",
+            extra={
+                "payment_intent_id": payment_intent_id,
+                "order_id": str(order_uuid) if order_uuid else None,
+            },
+        )
         return {"received": True}
 
     try:
         if event_type == "payment_intent.succeeded":
             payment.status = PaymentStatusEnum.COMPLETED
+            logger.info(
+                "Payment completed successfully",
+                extra={
+                    "payment_id": str(payment.id),
+                    "order_id": str(payment.order_id) if payment.order_id else None,
+                    "amount": str(payment.amount)
+                    if hasattr(payment, "amount")
+                    else None,
+                },
+            )
 
             # Optionally reflect onto Order
             if payment.order_id:
@@ -99,19 +132,30 @@ async def stripe_webhook(
                 )
                 order: Optional[Order] = order_result.scalar_one_or_none()
                 if order and hasattr(order, "paid_at"):
-                    from datetime import datetime, timezone
-
                     order.paid_at = datetime.now(timezone.utc)
 
         elif event_type == "payment_intent.payment_failed":
             payment.status = PaymentStatusEnum.FAILED
+            logger.warning(
+                "Payment failed",
+                extra={
+                    "payment_id": str(payment.id),
+                    "order_id": str(payment.order_id) if payment.order_id else None,
+                },
+            )
 
         # You can add handling for refund events here later
 
         await db.commit()
-    except Exception as e:
+    except Exception:
         # Log the error but still return 200 so Stripe stops retrying
-        print("ERROR handling Stripe webhook:", repr(e))
+        logger.exception(
+            "Error processing Stripe webhook",
+            extra={
+                "event_type": event_type,
+                "payment_intent_id": payment_intent_id,
+            },
+        )
         return {"received": True}
 
     return {"received": True}
