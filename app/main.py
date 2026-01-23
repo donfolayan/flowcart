@@ -16,6 +16,7 @@ from app.api.routes import (
     payment,
     product,
     product_media,
+    promo_code,
     stripe_webhook,
     upload,
     variants,
@@ -52,6 +53,7 @@ api = APIRouter(prefix="/api/v1")
 api.include_router(auth.router)
 api.include_router(product.router)
 api.include_router(variants.router)
+api.include_router(variants.admin_router)
 api.include_router(media.router)
 api.include_router(product_media.router)
 api.include_router(upload.router)
@@ -60,7 +62,9 @@ api.include_router(cart.router)
 api.include_router(cart_items.router)
 api.include_router(address.router)
 api.include_router(order.router)
+api.include_router(order.admin_router)
 api.include_router(payment.router)
+api.include_router(promo_code.router)
 api.include_router(stripe_webhook.router)
 app.include_router(api)
 

@@ -18,6 +18,7 @@ from app.core.logs.logging_utils import get_logger
 logger = get_logger("app.order")
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
+admin_router = APIRouter(prefix="/admin/orders", tags=["Admin Orders"], dependencies=[Depends(require_admin)])
 
 
 @router.post(
@@ -155,42 +156,6 @@ async def get_order(
     return OrderResponse.model_validate(order)
 
 
-@router.patch(
-    "/{order_id}",
-    response_model=OrderResponse,
-    description="Update an order status (admin only)",
-)
-async def update_order(
-    order_id: UUID,
-    payload: OrderUpdate,
-    admin_user: UUID = Depends(require_admin),
-    db: AsyncSession = Depends(get_session),
-) -> OrderResponse:
-    """
-    Update an order status. Admin only.
-
-    - Supports optimistic concurrency control via version field
-    - Validates status transitions via state machine
-    """
-    order_service = OrderService(db)
-
-    # For now, we only support status updates
-    if payload.status is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Status is required for order updates",
-        )
-
-    order = await order_service.update_order_status(
-        order_id=order_id,
-        user_id=admin_user,  # Admin is acting on behalf of system
-        new_status=payload.status,
-        version=payload.version if payload.version else 1,
-    )
-
-    return OrderResponse.model_validate(order)
-
-
 @router.delete(
     "/{order_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -252,28 +217,113 @@ async def cancel_order(
         )
 
 
-# Admin-only endpoints
-
-
-@router.get(
-    "/admin/all",
+@admin_router.get(
+    "/all",
     response_model=List[OrderResponse],
     description="Get all orders (admin only)",
 )
 async def get_all_orders(
     skip: int = 0,
     limit: int = 100,
-    admin_user: UUID = Depends(require_admin),
     db: AsyncSession = Depends(get_session),
 ) -> List[OrderResponse]:
     """
     Get all orders across all users. Admin only.
-
-    - Supports pagination via skip/limit
-    - Ordered by creation date (newest first)
     """
     stmt = select(Order).order_by(Order.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     orders = result.scalars().all()
 
     return [OrderResponse.model_validate(order) for order in orders]
+
+@admin_router.get(
+    "/{order_id}",
+    response_model=OrderResponse,
+    description="Get any order by ID (admin only)",
+)
+async def admin_get_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> OrderResponse:
+    """
+    Get any order by ID. Admin only.
+    """
+    stmt = select(Order).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+        )
+
+    return OrderResponse.model_validate(order)
+
+@admin_router.patch(
+    "/{order_id}",
+    response_model=OrderResponse,
+    description="Update an order status (admin only)",
+)
+async def update_order(
+    order_id: UUID,
+    payload: OrderUpdate,
+    db: AsyncSession = Depends(get_session),
+) -> OrderResponse:
+    """
+    Update an order status. Admin only.
+
+    - Supports optimistic concurrency control via version field
+    - Validates status transitions via state machine
+    """
+    order_service = OrderService(db)
+
+    # For now, we only support status updates
+    if payload.status is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status is required for order updates",
+        )
+
+    order = await order_service.update_order_status(
+        order_id=order_id,
+        user_id=None,
+        new_status=payload.status,
+        version=payload.version if payload.version else 1,
+    )
+
+    return OrderResponse.model_validate(order)
+
+@admin_router.delete(
+    "/{order_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    description="Permanently delete an order (admin only)",
+)
+async def delete_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    """
+    Permanently delete an order from the database. Admin only.
+    """
+    stmt = select(Order).where(Order.id == order_id)
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+        )
+
+    try:
+        await db.delete(order)
+        await db.commit()
+    except Exception as e:
+        logger.exception(
+            "Failed to delete order",
+            extra={"order_id": str(order_id)},
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete order: {str(e)}",
+        )

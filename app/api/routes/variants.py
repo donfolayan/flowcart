@@ -17,6 +17,11 @@ router = APIRouter(
     prefix="/variants",
     tags=["Variants"],
 )
+admin_router = APIRouter(
+    prefix="/admin/variants",
+    tags=["Admin Variants"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 @router.get(
@@ -55,12 +60,11 @@ async def get_product_variants_by_product_id(
     return [ProductVariantResponse.model_validate(variant) for variant in variants]
 
 
-@router.post(
+@admin_router.post(
     "/{product_id}",
     description="Create a new product variant",
     response_model=ProductVariantResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 async def create_product_variant(
     payload: ProductVariantCreate,
@@ -107,11 +111,10 @@ async def create_product_variant(
     return ProductVariantResponse.model_validate(variant)
 
 
-@router.delete(
+@admin_router.delete(
     "/{variant_id}",
     description="Delete a product variant",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 async def delete_product_variant(
     variant_id: UUID, db: AsyncSession = Depends(get_session)
@@ -140,11 +143,10 @@ async def delete_product_variant(
         ) from e
 
 
-@router.delete(
+@admin_router.delete(
     "/product/{product_id}",
     description="Delete all variants for a product",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 async def delete_product_variants(
     product_id: UUID, db: AsyncSession = Depends(get_session)

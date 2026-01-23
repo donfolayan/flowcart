@@ -361,7 +361,7 @@ class OrderService:
     async def update_order_status(
         self,
         order_id: UUID,
-        user_id: UUID,
+        user_id: Optional[UUID],
         new_status: OrderStatusEnum,
         version: int,
     ) -> Order:
@@ -375,7 +375,7 @@ class OrderService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
 
-        if order.user_id != user_id:
+        if user_id is not None and order.user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied: Order does not belong to the user",
