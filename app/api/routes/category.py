@@ -14,13 +14,49 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.category")
 
+admin_router = APIRouter(
+    prefix="/admin/categories",
+    tags=["Admin Categories"],
+    dependencies=[Depends(require_admin)],
+)
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
-@router.post(
+@router.get(
+    "/{category_id}",
+    response_model=CategoryResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_category(
+    category_id: UUID, db: AsyncSession = Depends(get_session)
+) -> CategoryResponse:
+    q = (
+        select(Category)
+        .where(Category.id == category_id)
+        .options(selectinload(Category.products), selectinload(Category.category_image))
+    )
+    r = await db.execute(q)
+    category = r.scalars().one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return CategoryResponse.model_validate(category)
+
+
+@router.get("/", response_model=List[CategoryResponse], status_code=status.HTTP_200_OK)
+async def get_all_categories(
+    db: AsyncSession = Depends(get_session),
+) -> List[CategoryResponse]:
+    q = select(Category).options(
+        selectinload(Category.products), selectinload(Category.category_image)
+    )
+    r = await db.execute(q)
+    categories = r.scalars().all()
+    return [CategoryResponse.model_validate(category) for category in categories]
+
+
+@admin_router.post(
     "/",
     response_model=CategoryResponse,
-    dependencies=[Depends(require_admin)],
     status_code=status.HTTP_201_CREATED,
 )
 async def create_category(
@@ -66,42 +102,9 @@ async def create_category(
     return CategoryResponse.model_validate(category_with_rels)
 
 
-@router.get(
+@admin_router.patch(
     "/{category_id}",
     response_model=CategoryResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def get_category(
-    category_id: UUID, db: AsyncSession = Depends(get_session)
-) -> CategoryResponse:
-    q = (
-        select(Category)
-        .where(Category.id == category_id)
-        .options(selectinload(Category.products), selectinload(Category.category_image))
-    )
-    r = await db.execute(q)
-    category = r.scalars().one_or_none()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-    return CategoryResponse.model_validate(category)
-
-
-@router.get("/", response_model=List[CategoryResponse], status_code=status.HTTP_200_OK)
-async def get_all_categories(
-    db: AsyncSession = Depends(get_session),
-) -> List[CategoryResponse]:
-    q = select(Category).options(
-        selectinload(Category.products), selectinload(Category.category_image)
-    )
-    r = await db.execute(q)
-    categories = r.scalars().all()
-    return [CategoryResponse.model_validate(category) for category in categories]
-
-
-@router.patch(
-    "/{category_id}",
-    response_model=CategoryResponse,
-    dependencies=[Depends(require_admin)],
     status_code=status.HTTP_200_OK,
 )
 async def update_category(
@@ -138,10 +141,9 @@ async def update_category(
     return CategoryResponse.model_validate(category)
 
 
-@router.delete(
+@admin_router.delete(
     "/{category_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 async def delete_category(
     category_id: UUID, db: AsyncSession = Depends(get_session)
