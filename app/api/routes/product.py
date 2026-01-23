@@ -22,7 +22,11 @@ from app.services.product import (
 )
 
 logger = get_logger("app.product")
-
+admin_router = APIRouter(
+    prefix="/admin/products",
+    tags=["Admin Products"],
+    dependencies=[Depends(require_admin)],
+)
 router = APIRouter(
     prefix="/products",
     tags=["Products"],
@@ -80,11 +84,10 @@ async def get_product_by_id(
     return ProductResponse.model_validate(product)
 
 
-@router.post(
+@admin_router.post(
     "/",
     response_model=ProductResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
     summary="Create Product",
 )
 async def create_product(
@@ -250,10 +253,9 @@ async def create_product(
         ) from e
 
 
-@router.patch(
+@admin_router.patch(
     "/{product_id}",
     response_model=ProductResponse,
-    dependencies=[Depends(require_admin)],
     summary="Update Product",
 )
 async def update_product(
@@ -386,10 +388,9 @@ async def update_product(
         ) from e
 
 
-@router.delete(
+@admin_router.delete(
     "/{product_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
     summary="Delete Product",
 )
 async def delete_product(product_id: UUID, db: AsyncSession = Depends(get_session)):

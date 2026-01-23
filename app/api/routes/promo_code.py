@@ -10,14 +10,56 @@ from app.core.logs.logging_utils import get_logger
 from app.core.permissions import require_admin
 
 logger = get_logger("app.promo_code")
+
 router = APIRouter(
     prefix="/promo-codes",
+    tags=["Promo Codes"],
+)
+admin_router = APIRouter(
+    prefix="/admin/promo-codes",
     tags=["Promo Codes"],
     dependencies=[Depends(require_admin)],
 )
 
 
-@router.post(
+@router.get(
+    "/{promo_code_id}",
+    description="Get promo code by ID",
+    response_model=PromoCodeResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_promo_code(
+    promo_code_id: UUID, db: AsyncSession = Depends(get_session)
+) -> PromoCodeResponse:
+    promo_code = await db.get(PromoCode, promo_code_id)
+
+    if not promo_code:
+        logger.info(
+            "Promo code not found",
+            extra={"promo_code_id": str(promo_code_id)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Promo code not found"
+        )
+
+    return PromoCodeResponse.model_validate(promo_code)
+
+
+@router.get(
+    "/",
+    description="List all promo codes",
+    response_model=List[PromoCodeResponse],
+    status_code=status.HTTP_200_OK,
+)
+async def list_promo_codes(
+    db: AsyncSession = Depends(get_session),
+) -> List[PromoCodeResponse]:
+    result = await db.execute(select(PromoCode))
+    promo_codes = result.scalars().all()
+    return [PromoCodeResponse.model_validate(pc) for pc in promo_codes]
+
+
+@admin_router.post(
     "/",
     description="Create a promo code",
     response_model=PromoCodeResponse,
@@ -44,40 +86,8 @@ async def create_promo_code(
 
     return PromoCodeResponse.model_validate(promo_code)
 
-@router.get(
-    "/{promo_code_id}",
-    description="Get promo code by ID",
-    response_model=PromoCodeResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def get_promo_code(
-    promo_code_id: UUID, db: AsyncSession = Depends(get_session)
-) -> PromoCodeResponse:
-    promo_code = await db.get(PromoCode, promo_code_id)
 
-    if not promo_code:
-        logger.info(
-            "Promo code not found",
-            extra={"promo_code_id": str(promo_code_id)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Promo code not found"
-        )
-
-    return PromoCodeResponse.model_validate(promo_code)
-
-@router.get(
-    "/",
-    description="List all promo codes",
-    response_model=List[PromoCodeResponse],
-    status_code=status.HTTP_200_OK,
-)
-async def list_promo_codes(db: AsyncSession = Depends(get_session)) -> List[PromoCodeResponse]:
-    result = await db.execute(select(PromoCode))
-    promo_codes = result.scalars().all()
-    return [PromoCodeResponse.model_validate(pc) for pc in promo_codes]
-
-@router.post(
+@admin_router.post(
     "/{promo_code_id}/activate",
     description="Activate a promo code",
     status_code=status.HTTP_200_OK,
@@ -102,7 +112,8 @@ async def activate_promo_code(
             extra={"promo_code_id": str(promo_code_id)},
         )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Promo code is already active"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Promo code is already active",
         )
 
     promo_code.is_active = True
@@ -123,7 +134,8 @@ async def activate_promo_code(
 
     return {"detail": "Promo code activated successfully"}
 
-@router.post(
+
+@admin_router.post(
     "/{promo_code_id}/deactivate",
     description="Deactivate a promo code",
     status_code=status.HTTP_200_OK,
@@ -148,7 +160,8 @@ async def deactivate_promo_code(
             extra={"promo_code_id": str(promo_code_id)},
         )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Promo code is already inactive"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Promo code is already inactive",
         )
 
     promo_code.is_active = False
@@ -169,7 +182,8 @@ async def deactivate_promo_code(
 
     return {"detail": "Promo code deactivated successfully"}
 
-@router.patch(
+
+@admin_router.patch(
     "/{promo_code_id}",
     description="Update a promo code",
     response_model=PromoCodeResponse,
@@ -193,9 +207,9 @@ async def update_promo_code(
 
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(promo_code, key, value)
-    
+
     db.add(promo_code)
-    
+
     try:
         await db.commit()
         await db.refresh(promo_code)
@@ -212,7 +226,8 @@ async def update_promo_code(
 
     return PromoCodeResponse.model_validate(promo_code)
 
-@router.delete(
+
+@admin_router.delete(
     "/{promo_code_id}",
     description="Delete a promo code",
     status_code=status.HTTP_204_NO_CONTENT,
