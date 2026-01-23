@@ -13,7 +13,7 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart")
 
-router = APIRouter(prefix="/cart", tags=["cart"])
+router = APIRouter(prefix="/cart", tags=["Cart"])
 
 
 @router.get(

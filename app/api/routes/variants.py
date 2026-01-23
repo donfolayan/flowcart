@@ -15,7 +15,7 @@ logger = get_logger("app.variant")
 
 router = APIRouter(
     prefix="/variants",
-    tags=["variants"],
+    tags=["Variants"],
 )
 
 

@@ -23,7 +23,7 @@ from app.services.product_media import (
 
 logger = get_logger("app.product_media")
 
-router = APIRouter(prefix="/products/{product_id}/media", tags=["product-media"])
+router = APIRouter(prefix="/products/{product_id}/media", tags=["Product Media"])
 
 
 @router.post(

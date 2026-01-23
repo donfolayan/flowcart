@@ -16,7 +16,7 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart_items")
 
-router = APIRouter(prefix="/cart/{cart_id}/items", tags=["cart-items"])
+router = APIRouter(prefix="/cart/{cart_id}/items", tags=["Cart Items"])
 
 
 @router.post(

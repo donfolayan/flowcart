@@ -14,7 +14,7 @@ logger = get_logger("app.media")
 
 router = APIRouter(
     prefix="/media",
-    tags=["media"],
+    tags=["Media"],
 )
 
 

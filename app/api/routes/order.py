@@ -17,7 +17,7 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.order")
 
-router = APIRouter(prefix="/orders", tags=["orders"])
+router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
 @router.post(

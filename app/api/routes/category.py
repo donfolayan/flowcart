@@ -14,7 +14,7 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.category")
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
 @router.post(
