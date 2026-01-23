@@ -172,6 +172,40 @@ async def stripe_webhook(
                     "order_id": str(payment.order_id) if payment.order_id else None,
                 },
             )
+            
+        elif event_type == "charge.refund_updated":
+            charge_id = stripe_object.get("charge")
+            refund_status = stripe_object.get("status")
+            refund_amount = stripe_object.get("amount")
+            
+            stmt = select(Payment).where(
+                Payment.charge_id == charge_id,
+                Payment.provider == "stripe",
+            )
+            result = await db.execute(stmt)
+            payment_for_refund = result.scalar_one_or_none()
+            
+            if payment_for_refund:
+                payment_for_refund.refund_id = stripe_object.get("id")
+                if refund_status == "succeeded":
+                    payment_for_refund.status = PaymentStatusEnum.REFUNDED
+                    logger.info(
+                        "Payment refund succeeded",
+                        extra={
+                        "payment_id": str(payment_for_refund.id),
+                        "order_id": str(payment_for_refund.order_id) if payment_for_refund.order_id else None,
+                        "refund_amount": str(refund_amount),
+                    },
+                )
+            else:
+                logger.info(
+                    "Payment refund updated",
+                    extra={
+                        "payment_id": str(payment.id),
+                        "order_id": str(payment.order_id) if payment.order_id else None,
+                        "refund_status": refund_status,
+                    },
+                )
 
         elif event_type == "payment_intent.amount_capturable_updated":
             amount_capturable = stripe_object.get("amount_capturable")
