@@ -114,6 +114,15 @@ async def stripe_webhook(
     try:
         if event_type == "payment_intent.succeeded":
             payment.status = PaymentStatusEnum.COMPLETED
+            # Extract charge ID from the PaymentIntent's charges data
+            charges = stripe_object.get("charges", {}).get("data", [])
+            if charges and isinstance(charges, list):
+                charge = charges[0]
+                charge_id = charge.get("id")
+                if charge_id:
+                    # Map charge ID to payment
+                    payment.charge_id = charge_id
+                    
             logger.info(
                 "Payment completed successfully",
                 extra={

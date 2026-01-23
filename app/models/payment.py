@@ -25,6 +25,8 @@ class Payment(Base):
     status: Mapped[PaymentStatusEnum] = mapped_column(sa.Enum(PaymentStatusEnum, name="payment_status_enum", create_type=False), server_default=sa.text("'pending'::payment_status_enum"), nullable=False)
     amount_cents: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     currency: Mapped[CurrencyEnum] = mapped_column(sa.Enum(CurrencyEnum, name="currency_enum", create_type=False), server_default=sa.text("'USD'::currency_enum"), nullable=False)
+    charge_id: Mapped[str | None] = mapped_column(sa.String(255), nullable=True, index=True)
+    refund_id: Mapped[str | None] = mapped_column(sa.String(255), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
 

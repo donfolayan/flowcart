@@ -38,6 +38,16 @@ class PaymentUpdate(BaseModel):
 class PaymentResponse(PaymentBase):
     id: UUID = Field(..., description="Unique identifier of the payment")
     order_id: UUID = Field(..., description="Unique identifier of the associated order")
+    charge_id: Optional[str] = Field(
+        None,
+        description="Identifier for the charge in the payment provider",
+        max_length=255,
+    )
+    refund_id: Optional[str] = Field(
+        None,
+        description="Identifier for the refund in the payment provider",
+        max_length=255,
+    )
     created_at: datetime = Field(..., description="Creation timestamp of the payment")
     updated_at: datetime = Field(
         ..., description="Last update timestamp of the payment"
