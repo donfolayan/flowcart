@@ -23,14 +23,16 @@ logger = get_logger("app.upload")
 FOLDER = config.APPLICATION_FOLDER
 STORAGE_PROVIDER = config.STORAGE_PROVIDER
 
-router = APIRouter(prefix="/media", tags=["Upload"])
+admin_router = APIRouter(
+    prefix="/upload",
+    tags=["Upload"],
+    dependencies=[Depends(require_admin)],
+)
 
-
-@router.post(
+@admin_router.post(
     "/upload",
     description="Upload a media file to a storage server and create media record.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 async def upload_stream(
     file: UploadFile = File(...),
@@ -94,10 +96,9 @@ async def upload_stream(
     return MediaResponse.model_validate(media)
 
 
-@router.delete(
+@admin_router.delete(
     "/delete/{media_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_admin)],
 )
 async def delete_media(media_id: str, db: AsyncSession = Depends(get_session)) -> None:
     media = await db.get(Media, media_id)

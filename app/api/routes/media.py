@@ -12,6 +12,11 @@ from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.media")
 
+admin_router = APIRouter(
+    prefix="/admin/media",
+    tags=["Admin Media"],
+    dependencies=[Depends(require_admin)],
+)
 router = APIRouter(
     prefix="/media",
     tags=["Media"],
@@ -47,12 +52,11 @@ async def list_media(db: AsyncSession = Depends(get_session)) -> List[MediaRespo
     return [MediaResponse.model_validate(item) for item in media_items]
 
 
-@router.post(
+@admin_router.post(
     "/",
     description="Create new media",
     response_model=MediaResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin)],
 )
 async def create_media(
     payload: MediaCreate, response: Response, db: AsyncSession = Depends(get_session)
