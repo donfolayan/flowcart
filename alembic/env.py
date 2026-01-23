@@ -65,6 +65,7 @@ import app.models.address  # noqa: F401, E402
 import app.models.payment  # noqa: F401, E402
 import app.models.shipping  # noqa: F401, E402
 import app.models.promo_code  # noqa: F401, E402
+import app.models.webhook_events  # noqa: F401, E402
 
 
 # add your model's MetaData object here

@@ -9,6 +9,12 @@ from decimal import Decimal
 from app.api.routes import cart_items as cart_routes
 
 
+class FakeModel(SimpleNamespace):
+    """SimpleNamespace with model_dump() for Pydantic compatibility in tests."""
+    def model_dump(self):
+        return vars(self)
+
+
 class DummyRes:
     def __init__(self, vals):
         self._vals = vals
@@ -95,7 +101,7 @@ async def test_add_item_to_cart_success(monkeypatch):
 
     fake_db = FakeDB(execute_results=[DummyRes(fake_cart)])
 
-    payload = SimpleNamespace(variant_id=None, product_id=uuid4(), quantity=1)
+    payload = FakeModel(variant_id=None, product_id=uuid4(), quantity=1)
     resp = Response()
 
     result = await cart_routes.add_item_to_cart(fake_cart.id, payload, resp, db=fake_db)  # type: ignore
@@ -116,7 +122,7 @@ async def test_add_item_to_cart_non_active_cart(monkeypatch):
     monkeypatch.setattr(cart_routes, "get_cart_or_404", _fake_get)
 
     fake_db = FakeDB()
-    payload = SimpleNamespace(variant_id=None, product_id=uuid4(), quantity=1)
+    payload = FakeModel(variant_id=None, product_id=uuid4(), quantity=1)
     resp = Response()
 
     with pytest.raises(HTTPException) as exc:
@@ -138,7 +144,7 @@ async def test_patch_cart_items_not_found(monkeypatch):
 
     fake_db = FakeDB(execute_results=[DummyRes(None)])
 
-    payload = SimpleNamespace(quantity=2)
+    payload = FakeModel(quantity=2)
 
     with pytest.raises(HTTPException) as exc:
         await cart_routes.patch_cart_items(fake_cart.id, uuid4(), payload, db=fake_db)  # type: ignore
@@ -210,7 +216,7 @@ async def test_add_item_to_cart_integrity_error(monkeypatch):
     monkeypatch.setattr(cart_routes, "_add_item_to_cart", _bad_add)
 
     fake_db = FakeDB(execute_results=[DummyRes(None)])
-    payload = SimpleNamespace(variant_id=None, product_id=uuid4(), quantity=1)
+    payload = FakeModel(variant_id=None, product_id=uuid4(), quantity=1)
     resp = Response()
 
     with pytest.raises(HTTPException) as exc:
@@ -237,7 +243,7 @@ async def test_add_item_to_cart_reload_not_found(monkeypatch):
 
     # simulate reload returning no cart
     fake_db = FakeDB(execute_results=[DummyRes(None)])
-    payload = SimpleNamespace(variant_id=None, product_id=uuid4(), quantity=1)
+    payload = FakeModel(variant_id=None, product_id=uuid4(), quantity=1)
     resp = Response()
 
     with pytest.raises(HTTPException) as exc:
@@ -266,7 +272,7 @@ async def test_patch_cart_items_integrity_error(monkeypatch):
 
     fake_db = FakeDB(execute_results=[DummyRes(fake_cart_item)])
 
-    payload = SimpleNamespace(quantity=3)
+    payload = FakeModel(quantity=3)
 
     with pytest.raises(HTTPException) as exc:
         await cart_routes.patch_cart_items(
