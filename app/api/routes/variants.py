@@ -3,12 +3,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DataError
 from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
-from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
+from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate, ProductVariantUpdate
 from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.variant")
@@ -185,3 +185,89 @@ async def delete_product_variants(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete product variants",
         ) from e
+
+@admin_router.patch(
+    "/{variant_id}",
+    description="Update a product variant",
+    response_model=ProductVariantResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def update_product_variant(
+    variant_id: UUID,
+    payload: ProductVariantUpdate,
+    db: AsyncSession = Depends(get_session),
+) -> ProductVariantResponse:
+    q = select(ProductVariant).where(ProductVariant.id == variant_id)
+    r = await db.execute(q)
+    variant: Optional[ProductVariant] = r.scalars().one_or_none()
+
+    if not variant:
+        logger.info(
+            "Product variant not found for update",
+            extra={"variant_id": str(variant_id)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+
+    # Guard against invalid nullable fields conflicting with DB constraints
+    if "sku" in update_data and update_data["sku"] is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SKU cannot be null",
+        )
+    if "name" in update_data and update_data["name"] is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name cannot be null",
+        )
+
+    # Pre-check SKU uniqueness if changing
+    if "sku" in update_data and update_data["sku"] != getattr(variant, "sku", None):
+        existing_q = select(ProductVariant).where(
+            ProductVariant.sku == update_data["sku"],
+            ProductVariant.id != variant_id,
+        )
+        existing_r = await db.execute(existing_q)
+        existing_variant = existing_r.scalars().one_or_none()
+        if existing_variant:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="SKU already exists",
+            )
+
+    for key, value in update_data.items():
+        setattr(variant, key, value)
+
+    try:
+        db.add(variant)
+        await db.commit()
+        await db.refresh(variant)
+    except (IntegrityError, DataError) as e:
+        await db.rollback()
+        logger.debug(
+            "Constraint violation updating product variant",
+            extra={
+                "variant_id": str(variant_id),
+                "payload": payload.model_dump(exclude_unset=True),
+                "error": str(e),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Update violates database constraints (e.g., unique SKU, non-negative checks, or enum status)",
+        ) from e
+    except Exception as e:
+        logger.exception(
+            "Failed to update product variant",
+            extra={"variant_id": str(variant_id), "payload": payload.model_dump(exclude_unset=True)},
+        )
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update product variant",
+        ) from e
+
+    return ProductVariantResponse.model_validate(variant)

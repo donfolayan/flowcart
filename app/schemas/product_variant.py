@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Literal
 from uuid import UUID
 from decimal import Decimal
 
@@ -34,6 +34,31 @@ class ProductVariantResponse(ProductVariantBase):
     )
     model_config = ConfigDict(from_attributes=True)
 
+class ProductVariantUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    sku: Optional[str] = Field(
+        None, description="Stock Keeping Unit of the product variant"
+    )
+    name: Optional[str] = Field(
+        None, description="Name of the product variant", min_length=1
+    )
+    price: Optional[Decimal] = Field(
+        None, description="Price of the product variant", ge=0
+    )
+    stock: Optional[int] = Field(
+        None, description="Stock quantity of the product variant", ge=0
+    )
+    status: Optional[Literal["draft", "active", "archived"]] = Field(
+        None, description="Status of the product variant"
+    )
+    attributes: Optional[Dict[str, List[str]]] = Field(
+        None, description="Custom attributes for the product variant"
+    )
+    primary_image_id: Optional[UUID] = Field(
+        None, description="ID of the primary image for the product variant"
+    )
+
 
 ProductVariantResponse.model_rebuild()
 ProductVariantCreate.model_rebuild()
+ProductVariantUpdate.model_rebuild()
