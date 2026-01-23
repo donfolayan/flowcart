@@ -25,7 +25,7 @@ from app.core.logging import setup_logging
 from app.core.registry import register_providers
 from app.db.listeners import register_listeners
 from app.db.logging import setup_db_logging
-from app.core.logging_utils import RequestIdMiddleware, get_logger
+from app.core.logs.logging_utils import RequestIdMiddleware, get_logger
 
 setup_logging()
 setup_db_logging()

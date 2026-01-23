@@ -9,7 +9,7 @@ from app.db.session import get_session
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.variant")
 

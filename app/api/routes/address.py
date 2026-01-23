@@ -6,7 +6,7 @@ from uuid import UUID
 from app.db.session import get_session
 from app.models.address import Address
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.address")
 

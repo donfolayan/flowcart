@@ -9,7 +9,7 @@ from app.schemas.cart import CartResponse
 from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
 from app.api.dependencies.session import get_or_create_session_id
 from app.core.permissions import get_current_user_optional
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart")
 

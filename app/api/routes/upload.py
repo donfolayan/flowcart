@@ -16,7 +16,7 @@ from app.core.security import get_current_user
 from app.core.registry import get_storage_provider
 from app.schemas.media import MediaResponse
 from app.models.media import Media
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.upload")
 

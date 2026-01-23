@@ -8,7 +8,7 @@ from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.models.media import Media
 from app.schemas.media import MediaResponse, MediaCreate
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.media")
 

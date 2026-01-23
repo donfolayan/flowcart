@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from app.models.product import Product
 from app.models.media import Media
 from app.models.product_media import ProductMedia
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.product_media_service")
 

@@ -29,6 +29,9 @@ class Config(BaseSettings):
     
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "console"
+    LOG_DIR: str = "logs"
+    LOG_FILE_APP: str = "app.log"
+    LOG_FILE_DB: str = "db.log"
 
     model_config = SettingsConfigDict(
         env_file=".env",

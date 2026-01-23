@@ -9,7 +9,7 @@ from app.db.session import get_session
 from app.db.user import get_user_by_id
 from app.models.user import User
 from app.core.jwt import decode_access_token
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.security")
 

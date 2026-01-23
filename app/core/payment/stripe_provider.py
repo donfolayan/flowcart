@@ -5,7 +5,7 @@ from .base import PaymentProvider
 from app.core.config import config
 from .payment_error import PaymentError
 from typing import Optional, Dict, Any, Callable
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.payment.stripe")
 
@@ -44,7 +44,7 @@ class StripeProvider(PaymentProvider):
         """Run a synchronous function in a thread to avoid blocking the event loop."""
         return await asyncio.to_thread(lambda: fn(*args, **kwargs))
 
-    # small helper to standardize Stripe responses
+    # helper to standardize Stripe responses
     @staticmethod
     def _sanitize_intent(intent: Any) -> Dict[str, Any]:
         raw = None

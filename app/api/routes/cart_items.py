@@ -12,7 +12,7 @@ from app.schemas.cart import CartResponse
 from app.api.dependencies.cart import get_cart_or_404
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 from app.services.cart import _add_item_to_cart, _update_cart_item
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart_items")
 

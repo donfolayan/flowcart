@@ -1,6 +1,7 @@
 import json
 import logging
 import logging.config
+from pathlib import Path
 from typing import Any, Dict
 
 from app.core.config import config
@@ -64,6 +65,13 @@ class JSONFormatter(logging.Formatter):
 def setup_logging():
     LOG_LEVEL = config.LOG_LEVEL
     LOG_FORMAT = config.LOG_FORMAT
+    LOG_DIR = Path(config.LOG_DIR)
+    LOG_FILE_APP = config.LOG_FILE_APP
+    LOG_FILE_DB = config.LOG_FILE_DB
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path_app = LOG_DIR / LOG_FILE_APP
+    log_path_db = LOG_DIR / LOG_FILE_DB
 
     formatters_config = {
         "console": {
@@ -88,6 +96,18 @@ def setup_logging():
             "level": "ERROR",
             "stream": "ext://sys.stderr",
         },
+        "file_app": {
+            "class": "logging.FileHandler",
+            "filename": str(log_path_app),
+            "mode": "a",
+            "formatter": "console" if LOG_FORMAT == "console" else "json",
+        },
+        "file_db": {
+            "class": "logging.FileHandler",
+            "filename": str(log_path_db),
+            "mode": "a",
+            "formatter": "console" if LOG_FORMAT == "console" else "json",
+        },
     }
 
     logging.config.dictConfig(
@@ -103,12 +123,12 @@ def setup_logging():
             "loggers": {
                 "app": {
                     "level": LOG_LEVEL,
-                    "handlers": ["console", "error"],
+                    "handlers": ["console", "error", "file_app"],
                     "propagate": False,
                 },
                 "db": {
                     "level": "INFO",
-                    "handlers": ["console", "error"],
+                    "handlers": ["console", "error", "file_db"],
                     "propagate": False,
                 },
                 "uvicorn.error": {

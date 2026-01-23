@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 from app.db.session import get_session
 from app.schemas.product_media import (

@@ -14,7 +14,7 @@ from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 from app.schemas.product_variant import ProductVariantCreate
 from app.services.product_media import _validate_media_and_add
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 from app.services.product import (
     _attach_existing_variants,
     _create_inline_variants,

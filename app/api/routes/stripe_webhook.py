@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 from app.core.payment.stripe_provider import StripeProvider
 from app.core.payment.payment_error import PaymentError
 from app.db.session import get_session

@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.product import Product
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart")
 

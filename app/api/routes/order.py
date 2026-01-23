@@ -13,7 +13,7 @@ from app.schemas.order import OrderCreate, OrderUpdate, OrderResponse
 from app.schemas.order import OrderPreviewResponse
 from app.services.order import OrderService
 from app.enums.order_enums import OrderStatusEnum
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.order")
 

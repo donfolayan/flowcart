@@ -10,7 +10,7 @@ from app.db.session import get_session
 from app.models.category import Category
 from app.schemas.category import CategoryResponse, CategoryCreate, CategoryUpdate
 from app.core.permissions import require_admin
-from app.core.logging_utils import get_logger
+from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.category")
 
