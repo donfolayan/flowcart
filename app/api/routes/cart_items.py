@@ -12,6 +12,9 @@ from app.schemas.cart import CartResponse
 from app.api.dependencies.cart import get_cart_or_404
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 from app.services.cart import _add_item_to_cart, _update_cart_item
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.cart_items")
 
 router = APIRouter(prefix="/cart/{cart_id}/items", tags=["cart-items"])
 
@@ -62,6 +65,10 @@ async def add_item_to_cart(
                 detail="Cart not found after adding item",
             )
     except IntegrityError as ie:
+        logger.debug(
+            "IntegrityError when adding item to cart",
+            extra={"cart_id": str(cart_id), "payload": payload.model_dump()},
+        )
         try:
             await db.rollback()
         except Exception:
@@ -79,6 +86,10 @@ async def add_item_to_cart(
             await db.rollback()
         except Exception:
             pass
+        logger.exception(
+            "Failed to add item to cart",
+            extra={"cart_id": str(cart_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error when adding item to cart",
@@ -164,6 +175,10 @@ async def patch_cart_items(
             await db.rollback()
         except Exception:
             pass
+        logger.exception(
+            "Failed to update cart item",
+            extra={"cart_id": str(cart_id), "item_id": str(item_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error when updating cart item",

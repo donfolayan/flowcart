@@ -14,11 +14,14 @@ from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 from app.schemas.product_variant import ProductVariantCreate
 from app.services.product_media import _validate_media_and_add
+from app.core.logging_utils import get_logger
 from app.services.product import (
     _attach_existing_variants,
     _create_inline_variants,
     _product_has_variants,
 )
+
+logger = get_logger("app.product")
 
 router = APIRouter(
     prefix="/products",
@@ -178,6 +181,13 @@ async def create_product(
                 break
             except IntegrityError as e:
                 await db.rollback()
+                logger.debug(
+                    "IntegrityError on creating product, possibly due to slug conflict.",
+                    extra={
+                        "attempt": attempt,
+                        "product_data": data,
+                    },
+                )
 
                 constraint = None
                 orig = getattr(e, "orig", None)
@@ -230,6 +240,10 @@ async def create_product(
         raise
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to create product",
+            extra={"payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while creating product - {str(e)}",
@@ -348,6 +362,10 @@ async def update_product(
         return ProductResponse.model_validate(product)
 
     except IntegrityError as e:
+        logger.debug(
+            "IntegrityError on updating product",
+            extra={"product_id": str(product_id), "payload": payload.model_dump()},
+        )
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -358,6 +376,10 @@ async def update_product(
         raise
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to update product",
+            extra={"product_id": str(product_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while updating product - {str(e)}",
@@ -392,6 +414,10 @@ async def delete_product(product_id: UUID, db: AsyncSession = Depends(get_sessio
         ) from e
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to delete product",
+            extra={"product_id": str(product_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete product",

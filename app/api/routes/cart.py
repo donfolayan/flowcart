@@ -9,6 +9,9 @@ from app.schemas.cart import CartResponse
 from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
 from app.api.dependencies.session import get_or_create_session_id
 from app.core.permissions import get_current_user_optional
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.cart")
 
 router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -50,6 +53,10 @@ async def create_cart(
         await db.refresh(new_cart)
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to create cart",
+            extra={"user_id": str(user_id), "session_id": session_id},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",

@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from app.core.logging_utils import get_logger
 
 from app.db.session import get_session
 from app.schemas.product_media import (
@@ -19,6 +20,8 @@ from app.services.product_media import (
     update_product_media,
     delete_product_media,
 )
+
+logger = get_logger("app.product_media")
 
 router = APIRouter(prefix="/products/{product_id}/media", tags=["product-media"])
 
@@ -41,6 +44,10 @@ async def create_media_association(
         )
         return pm
     except IntegrityError:
+        logger.debug(
+            "IntegrityError on creating product-media association",
+            extra={"product_id": str(product_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Constraint violated or duplicate product-media association",

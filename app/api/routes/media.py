@@ -8,6 +8,9 @@ from app.core.permissions import require_admin
 from app.db.session import get_session
 from app.models.media import Media
 from app.schemas.media import MediaResponse, MediaCreate
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.media")
 
 router = APIRouter(
     prefix="/media",
@@ -73,12 +76,20 @@ async def create_media(
         await db.refresh(new_media)
     except IntegrityError as e:
         await db.rollback()
+        logger.debug(
+            "IntegrityError on creating media",
+            extra={"payload": payload_data},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Media creation failed - integrity error - {str(e)}",
         ) from e
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to create media",
+            extra={"payload": payload_data},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Media creation failed - unexpected error - {str(e)}",

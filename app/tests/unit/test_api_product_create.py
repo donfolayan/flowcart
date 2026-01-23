@@ -299,8 +299,6 @@ async def test_create_product_slug_retry_on_integrity_error(monkeypatch):
         async def commit(self):
             if self._commit_calls == 0:
                 self._commit_calls += 1
-                # IntegrityError(signature) - message must contain 'slug' and 'unique' to match route fallback
-                # pass a real exception as `orig` to satisfy type-checkers (Pylance)
                 raise IntegrityError(
                     "slug unique constraint", None, Exception("slug unique")
                 )

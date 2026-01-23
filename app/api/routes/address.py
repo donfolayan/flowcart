@@ -6,6 +6,9 @@ from uuid import UUID
 from app.db.session import get_session
 from app.models.address import Address
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.address")
 
 router = APIRouter(prefix="/address", tags=["Address"])
 
@@ -20,6 +23,7 @@ async def create_address(
     try:
         await db.commit()
     except IntegrityError as ie:
+        logger.debug("IntegrityError on creating address: %s", str(ie))
         try:
             await db.rollback()
         except Exception:
@@ -33,6 +37,10 @@ async def create_address(
             await db.rollback()
         except Exception:
             pass
+        logger.exception(
+            "Failed to create address",
+            extra={"payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",
@@ -86,6 +94,10 @@ async def update_address(
             await db.rollback()
         except Exception:
             pass
+        logger.exception(
+            "Failed to update address",
+            extra={"address_id": str(address_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",

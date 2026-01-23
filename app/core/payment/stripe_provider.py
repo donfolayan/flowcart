@@ -5,6 +5,9 @@ from .base import PaymentProvider
 from app.core.config import config
 from .payment_error import PaymentError
 from typing import Optional, Dict, Any, Callable
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.payment.stripe")
 
 
 STRIPE_API_KEY = config.STRIPE_API_KEY
@@ -109,6 +112,15 @@ class StripeProvider(PaymentProvider):
                 f"Stripe error creating PaymentIntent: {e.user_message or str(e)}"
             ) from e
         except Exception as e:
+            logger.exception(
+                "Unexpected error creating PaymentIntent",
+                extra={
+                    "amount_cents": amount_cents,
+                    "currency": currency,
+                    "description": description,
+                    "idempotency_key": idempotency_key,
+                },
+            )
             raise PaymentError(f"Unexpected error creating PaymentIntent: {e}") from e
 
     async def authorize(
@@ -150,6 +162,13 @@ class StripeProvider(PaymentProvider):
                 f"Stripe error capturing PaymentIntent: {e.user_message or str(e)}"
             ) from e
         except Exception as e:
+            logger.exception(
+                "Unexpected error capturing PaymentIntent",
+                extra={
+                    "payment_intent_id": payment_intent_id,
+                    "amount_cents": amount_cents,
+                },
+            )
             raise PaymentError(f"Unexpected error capturing PaymentIntent: {e}") from e
 
     async def refund(
@@ -177,6 +196,13 @@ class StripeProvider(PaymentProvider):
                 f"Stripe error creating refund: {e.user_message or str(e)}"
             ) from e
         except Exception as e:
+            logger.exception(
+                "Unexpected error creating refund",
+                extra={
+                    "payment_intent_id": payment_intent_id,
+                    "amount_cents": amount_cents,
+                },
+            )
             raise PaymentError(f"Unexpected error creating refund: {e}") from e
 
     async def void(self, payment_intent_id: str) -> Dict[str, Any]:
@@ -197,6 +223,10 @@ class StripeProvider(PaymentProvider):
                 f"Stripe error cancelling PaymentIntent: {e.user_message or str(e)}"
             ) from e
         except Exception as e:
+            logger.exception(
+                "Unexpected error cancelling PaymentIntent",
+                extra={"payment_intent_id": payment_intent_id},
+            )
             raise PaymentError(f"Unexpected error cancelling PaymentIntent: {e}") from e
 
     async def handle_webhook(self, payload: bytes, sig_header: str) -> Dict[str, Any]:
@@ -244,6 +274,10 @@ class StripeProvider(PaymentProvider):
                 f"Stripe webhook verification failed: {e.user_message or str(e)}"
             ) from e
         except Exception as e:
+            logger.exception(
+                "Unexpected error verifying webhook",
+                extra={"error": str(e), "error_type": type(e).__name__},
+            )
             raise PaymentError(f"Unexpected error verifying webhook: {e}") from e
 
     async def health_check(self) -> bool:

@@ -9,6 +9,9 @@ from app.db.session import get_session
 from app.db.user import get_user_by_id
 from app.models.user import User
 from app.core.jwt import decode_access_token
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.security")
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -55,6 +58,10 @@ async def get_current_user(
     try:
         user_id = UUID(str(user_id_value))
     except Exception as e:
+        logger.exception(
+            "Invalid user id in token",
+            extra={"user_id_value": str(user_id_value)},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user id in token",

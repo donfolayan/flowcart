@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 from uuid import UUID
 from sqlalchemy import and_, select, update
@@ -9,8 +8,9 @@ from fastapi import HTTPException, status
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.product import Product
+from app.core.logging_utils import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("app.cart")
 
 
 async def _add_item_to_cart(
@@ -190,7 +190,9 @@ async def _add_item_to_cart(
                 await db.rollback()
             except Exception:
                 pass
-            logger.exception("Unexpected error in _add_item_to_cart: %s", e)
+            logger.exception(
+                "Unexpected error in _add_item_to_cart: %s", e, exc_info=True
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error",
@@ -272,7 +274,7 @@ async def _update_cart_item(
             await db.rollback()
         except Exception:
             pass
-        logger.warning("IntegrityError updating cart item: %s", getattr(e, "orig", e))
+        logger.debug("IntegrityError updating cart item: %s", getattr(e, "orig", e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update cart item"
         )
@@ -350,7 +352,7 @@ async def _merge_guest_cart(
             await db.rollback()
         except Exception:
             pass
-        logger.warning("IntegrityError merging guest cart: %s", getattr(e, "orig", e))
+        logger.debug("IntegrityError merging guest cart: %s", getattr(e, "orig", e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to merge guest cart"
         )

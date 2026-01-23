@@ -10,6 +10,9 @@ from app.db.session import get_session
 from app.models.category import Category
 from app.schemas.category import CategoryResponse, CategoryCreate, CategoryUpdate
 from app.core.permissions import require_admin
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.category")
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
@@ -28,6 +31,10 @@ async def create_category(
     try:
         await db.commit()
     except IntegrityError as ie:
+        logger.debug(
+            "IntegrityError on creating category",
+            extra={"payload": payload.model_dump()},
+        )
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -35,6 +42,10 @@ async def create_category(
         ) from ie
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to create category",
+            extra={"payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",
@@ -115,6 +126,10 @@ async def update_category(
         ) from ie
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to update category",
+            extra={"category_id": str(category_id), "payload": payload.model_dump()},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",
@@ -149,12 +164,20 @@ async def delete_category(
         ) from ve
     except IntegrityError as ie:
         await db.rollback()
+        logger.debug(
+            "IntegrityError on deleting category",
+            extra={"category_id": str(category_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Integrity Error - {str(ie)}",
         ) from ie
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to delete category",
+            extra={"category_id": str(category_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",

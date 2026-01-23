@@ -6,6 +6,9 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.models.cart import Cart
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.cart")
 
 
 async def get_cart_or_404(
@@ -50,6 +53,13 @@ async def get_or_create_cart(
         await db.refresh(cart)
         return cart
     except IntegrityError:
+        logger.debug(
+            "IntegrityError on cart creation, likely due to race condition. Retrying fetch.",
+            extra={
+                "user_id": str(user_id) if user_id else None,
+                "session_id": session_id,
+            },
+        )
         try:
             await db.rollback()
         except Exception:
@@ -65,6 +75,13 @@ async def get_or_create_cart(
         return result.scalars().first()
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to create or retrieve cart",
+            extra={
+                "user_id": str(user_id) if user_id else None,
+                "session_id": session_id,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error - {str(e)}",

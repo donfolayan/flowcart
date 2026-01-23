@@ -9,6 +9,9 @@ from app.db.session import get_session
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.variant")
 
 router = APIRouter(
     prefix="/variants",
@@ -90,6 +93,10 @@ async def create_product_variant(
         await db.commit()
         await db.refresh(variant)
     except Exception as e:
+        logger.exception(
+            "Failed to create product variant",
+            extra={"product_id": str(product_id), "payload": payload.model_dump()},
+        )
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -123,6 +130,10 @@ async def delete_product_variant(
         await db.commit()
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to delete product variant",
+            extra={"variant_id": str(variant_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete product variant",
@@ -153,6 +164,10 @@ async def delete_product_variants(
         await db.execute(query)
         await db.commit()
     except IntegrityError as e:
+        logger.debug(
+            "IntegrityError on deleting product variants",
+            extra={"product_id": str(product_id)},
+        )
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -160,6 +175,10 @@ async def delete_product_variants(
         ) from e
     except Exception as e:
         await db.rollback()
+        logger.exception(
+            "Failed to delete product variants",
+            extra={"product_id": str(product_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete product variants",

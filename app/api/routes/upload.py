@@ -16,9 +16,9 @@ from app.core.security import get_current_user
 from app.core.registry import get_storage_provider
 from app.schemas.media import MediaResponse
 from app.models.media import Media
-from logging import getLogger
+from app.core.logging_utils import get_logger
 
-logger = getLogger(__name__)
+logger = get_logger("app.upload")
 
 FOLDER = config.APPLICATION_FOLDER
 STORAGE_PROVIDER = config.STORAGE_PROVIDER
@@ -55,6 +55,10 @@ async def upload_stream(
             folder=folder or "",
         )
     except Exception as e:
+        logger.exception(
+            "File upload failed",
+            extra={"filename": file.filename, "user_id": str(current_user.id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"File upload failed: {str(e)}",
@@ -121,6 +125,10 @@ async def delete_media(media_id: str, db: AsyncSession = Depends(get_session)) -
                 public_id=public_id, resource_type=resource_type or "image"
             )
         except Exception as e:
+            logger.exception(
+                "Failed to delete file from storage provider",
+                extra={"media_id": str(media_id), "public_id": public_id},
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Failed to delete file from storage provider: {str(e)}",

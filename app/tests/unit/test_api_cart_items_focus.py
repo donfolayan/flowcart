@@ -181,8 +181,6 @@ async def test_patch_cart_items_success(monkeypatch):
         discount_amount=Decimal("0"),
         line_total=Decimal("0"),
     )
-
-    print("DEBUG select now:", cart_routes.select)
     res = await cart_routes.patch_cart_items(
         fake_cart.id,
         fake_cart_item.id,

@@ -13,6 +13,9 @@ from app.schemas.order import OrderCreate, OrderUpdate, OrderResponse
 from app.schemas.order import OrderPreviewResponse
 from app.services.order import OrderService
 from app.enums.order_enums import OrderStatusEnum
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.order")
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -238,6 +241,10 @@ async def cancel_order(
     try:
         await db.commit()
     except Exception as e:
+        logger.exception(
+            "Failed to cancel order",
+            extra={"order_id": str(order_id), "user_id": str(user_id) if user_id else None, "session_id": session_id},
+        )
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

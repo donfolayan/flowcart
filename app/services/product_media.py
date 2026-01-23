@@ -7,6 +7,9 @@ from fastapi import HTTPException, status
 from app.models.product import Product
 from app.models.media import Media
 from app.models.product_media import ProductMedia
+from app.core.logging_utils import get_logger
+
+logger = get_logger("app.product_media_service")
 
 
 async def _validate_media_and_add(
@@ -89,6 +92,10 @@ async def create_product_media(
     try:
         await session.flush()
     except IntegrityError as e:
+        logger.debug(
+            "IntegrityError on creating product-media association",
+            extra={"product_id": str(product_id), "media_id": str(media_id), "variant_id": str(variant_id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Duplicate product-media association or constraint violated: {e.orig}",
@@ -119,6 +126,10 @@ async def update_product_media(
     try:
         await session.flush()
     except IntegrityError:
+        logger.debug(
+            "IntegrityError on updating product-media association",
+            extra={"pm_id": str(pm.id), "variant_id": str(variant_id), "is_primary": is_primary},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Update violates database constraints",

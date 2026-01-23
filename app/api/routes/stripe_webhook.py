@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.api.dependencies.logging import get_logger
+from app.core.logging_utils import get_logger
 from app.core.payment.stripe_provider import StripeProvider
 from app.core.payment.payment_error import PaymentError
 from app.db.session import get_session
@@ -119,9 +119,7 @@ async def stripe_webhook(
                 extra={
                     "payment_id": str(payment.id),
                     "order_id": str(payment.order_id) if payment.order_id else None,
-                    "amount": str(payment.amount)
-                    if hasattr(payment, "amount")
-                    else None,
+                    "amount": str(payment.amount) if hasattr(payment, "amount") else None,
                 },
             )
 
