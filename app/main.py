@@ -21,7 +21,7 @@ from app.api.routes import (
     variants,
 )
 from app.core.config import config
-from app.core.logging import setup_logging
+from app.core.logs.logging import setup_logging
 from app.core.registry import register_providers
 from app.db.listeners import register_listeners
 from app.db.logging import setup_db_logging
