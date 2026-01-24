@@ -12,3 +12,9 @@ class EmailSettings(BaseModel):
     use_tls: bool
     use_ssl: bool
     timeout_seconds: int
+    
+class VerifyEmailRequest(BaseModel):
+    token: str
+    
+class ResendVerificationRequest(BaseModel):
+    email: str

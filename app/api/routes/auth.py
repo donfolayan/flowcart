@@ -1,4 +1,4 @@
-import asyncio
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from uuid import UUID
@@ -12,11 +12,11 @@ from app.db.session import get_session
 from app.models.user import User
 from app.core.security import hash_password, verify_password
 from app.core.jwt import create_access_token, create_refresh_token
-from app.core.email import send_email, EmailMessage
-from app.core.security import (
-    generate_verification_token,
-    create_verification_token_expiry,
-)
+from app.schemas.email import VerifyEmailRequest, ResendVerificationRequest
+from app.core.logs.logging_utils import get_logger
+from app.util.email import send_and_save_verification_email
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -36,29 +36,16 @@ async def register_user(
         username=payload.username,
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        verification_token=generate_verification_token(),
-        verification_token_expiry=create_verification_token_expiry(),
     )
 
     db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
+    await db.flush()
+
+    # Send verification email (generates token, saves to DB, sends email)
+    await send_and_save_verification_email(new_user, db, app_url=config.FRONTEND_URL)
 
     access_token = create_access_token({"sub": str(new_user.id)})
     refresh_token = create_refresh_token({"sub": str(new_user.id)})
-
-    # Send verification email
-    verification_link = (
-        f"{config.FRONTEND_URL}/verify-email?token={new_user.verification_token}"
-    )
-    message = EmailMessage(
-        to=[new_user.email],
-        subject="Verify your email address",
-        text_body=f"Please verify your email by clicking on the following link: {verification_link}",
-        html_body=f"<p>Please verify your email by clicking on the following link:</p><p><a href='{verification_link}'>Verify Email</a></p>",
-    )
-    
-    await asyncio.to_thread(send_email, message)
 
     return Token(
         access_token=access_token, refresh_token=refresh_token, token_type="bearer"
@@ -130,5 +117,68 @@ async def refresh_token(
 
 
 @router.post("/verify-email")
-async def verify_email():
-    pass
+async def verify_email(
+    payload: VerifyEmailRequest, db: AsyncSession = Depends(get_session)
+):
+    query = select(User).where(User.verification_token == payload.token)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.info(
+            "Email verification failed - invalid token",
+            extra={"token": payload.token},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification token"
+        )
+
+    if user.is_verified:
+        return {"message": "Email already verified"}
+
+    if user.verification_token_expiry and user.verification_token_expiry < datetime.now(
+        timezone.utc
+    ):
+        logger.info(
+            "Email verification failed - token expired",
+            extra={"token": payload.token},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification token has expired",
+        )
+
+    user.is_verified = True
+    user.verification_token = None
+    user.verification_token_expiry = None
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return {"message": "Email verified successfully"}
+
+
+@router.post("/resend-verification-email")
+async def resend_verification_email(
+    payload: ResendVerificationRequest, db: AsyncSession = Depends(get_session)
+):
+    query = select(User).where(User.email == payload.email)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+
+    if not user:
+        logger.info(
+            "Resend verification email failed - email not found",
+            extra={"email": payload.email},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Email not found"
+        )
+
+    if user.is_verified:
+        return {"message": "Email already verified"}
+
+    # Send verification email (generates token, saves to DB, sends email)
+    await send_and_save_verification_email(user, db, app_url=config.FRONTEND_URL)
+
+    return {"message": "Verification email resent successfully"}
