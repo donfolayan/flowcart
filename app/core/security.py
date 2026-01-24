@@ -1,5 +1,7 @@
+import secrets
 from typing import Optional
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -24,6 +26,11 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
+def generate_verification_token() -> str:
+    return secrets.token_urlsafe(32)
+
+def create_verification_token_expiry(hours: int = 24) -> datetime: #24hr expiry
+    return datetime.now(timezone.utc) + timedelta(hours=hours)
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),

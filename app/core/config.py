@@ -26,6 +26,16 @@ class Config(BaseSettings):
 
     PAYMENT_PROVIDER: str = "stripe"
     STORAGE_PROVIDER: str = "cloudinary"
+
+    EMAIL_PROVIDER: str = "smtp"
+    EMAIL_HOST: Optional[str] = None
+    EMAIL_PORT: int = 587
+    EMAIL_USERNAME: Optional[str] = None
+    EMAIL_PASSWORD: Optional[str] = None
+    EMAIL_FROM: Optional[str] = None
+    EMAIL_USE_TLS: bool = True
+    EMAIL_USE_SSL: bool = False
+    EMAIL_TIMEOUT_SECONDS: int = 10
     
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "console"

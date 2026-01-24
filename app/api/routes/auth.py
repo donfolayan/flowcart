@@ -105,3 +105,7 @@ async def refresh_token(
     return Token(
         access_token=access_token, refresh_token=new_refresh_token, token_type="bearer"
     )
+
+@router.post("/verify-email")
+async def verify_email():
+    pass
