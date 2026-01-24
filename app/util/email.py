@@ -63,6 +63,10 @@ async def send_and_save_verification_email(
     Returns:
         Tuple of (verification_token, expiry_datetime)
     """
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     token = generate_verification_token()
     expiry = create_verification_token_expiry(hours=24)
     
@@ -70,6 +74,14 @@ async def send_and_save_verification_email(
     user.verification_token_expires = expiry
     await session.commit()
     
-    await send_verification_email(user.email, token, app_url)
+    # Try to send email, but don't fail user registration if it does
+    try:
+        await send_verification_email(user.email, token, app_url)
+    except Exception as e:
+        logger.error(
+            f"Failed to send verification email to {user.email}",
+            exc_info=True,
+            extra={"email": user.email, "error": str(e)},
+        )
     
     return token, expiry
