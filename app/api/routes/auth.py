@@ -1,6 +1,8 @@
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from uuid import UUID
+from app.core.config import config
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.schemas.user import UserCreate, UserLogin
@@ -10,6 +12,11 @@ from app.db.session import get_session
 from app.models.user import User
 from app.core.security import hash_password, verify_password
 from app.core.jwt import create_access_token, create_refresh_token
+from app.core.email import send_email, EmailMessage
+from app.core.security import (
+    generate_verification_token,
+    create_verification_token_expiry,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -29,6 +36,8 @@ async def register_user(
         username=payload.username,
         email=payload.email,
         hashed_password=hash_password(payload.password),
+        verification_token=generate_verification_token(),
+        verification_token_expiry=create_verification_token_expiry(),
     )
 
     db.add(new_user)
@@ -37,6 +46,19 @@ async def register_user(
 
     access_token = create_access_token({"sub": str(new_user.id)})
     refresh_token = create_refresh_token({"sub": str(new_user.id)})
+
+    # Send verification email
+    verification_link = (
+        f"{config.FRONTEND_URL}/verify-email?token={new_user.verification_token}"
+    )
+    message = EmailMessage(
+        to=[new_user.email],
+        subject="Verify your email address",
+        text_body=f"Please verify your email by clicking on the following link: {verification_link}",
+        html_body=f"<p>Please verify your email by clicking on the following link:</p><p><a href='{verification_link}'>Verify Email</a></p>",
+    )
+    
+    await asyncio.to_thread(send_email, message)
 
     return Token(
         access_token=access_token, refresh_token=refresh_token, token_type="bearer"
@@ -105,6 +127,7 @@ async def refresh_token(
     return Token(
         access_token=access_token, refresh_token=new_refresh_token, token_type="bearer"
     )
+
 
 @router.post("/verify-email")
 async def verify_email():

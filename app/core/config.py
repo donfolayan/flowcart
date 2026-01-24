@@ -42,6 +42,8 @@ class Config(BaseSettings):
     LOG_DIR: str = "logs"
     LOG_FILE_APP: str = "app.log"
     LOG_FILE_DB: str = "db.log"
+    
+    FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",
