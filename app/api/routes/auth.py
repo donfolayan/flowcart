@@ -15,7 +15,8 @@ from app.core.jwt import create_access_token, create_refresh_token
 from app.schemas.email import VerifyEmailRequest, ResendVerificationRequest
 from app.schemas.auth import ForgotPasswordRequest
 from app.core.logs.logging_utils import get_logger
-from app.util.email import send_and_save_verification_email
+from app.util.email import send_and_save_verification_email, send_password_reset_email
+from app.util.tokens import generate_password_reset_token, create_password_reset_token_expiry
 
 logger = get_logger(__name__)
 
@@ -192,11 +193,14 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
     user = result.scalar_one_or_none()
     
     if not user:
-        logger.info(
-            "Forgot password request failed - email not found",
-            extra={"email": payload.email},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Email not found"
-        )
+        return {"message": f"If the {User.email} exists, a password reset link has been sent."}
     
+    token = generate_password_reset_token()
+    expiry = create_password_reset_token_expiry(hours=1)
+    
+    user.password_reset_token = token
+    user.password_reset_token_expiry = expiry
+    
+    await db.commit()
+    await send_password_reset_email(user.email, token, app_url=config.FRONTEND_URL)
+    return {"message": f"If the {User.email} exists, a password reset link has been sent."}

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 from app.core.email import send_email, EmailMessage
+from app.core.config import config
 
 
 def generate_verification_token() -> str:
@@ -85,3 +86,31 @@ async def send_and_save_verification_email(
         )
     
     return token, expiry
+
+
+async def send_password_reset_email(user_email: str, token: str, app_url: str = config.FRONTEND_URL) -> None:
+    """
+    Send password reset email with a magic link.
+    
+    Args:
+        user_email: Recipient email address
+        token: Password reset token
+        app_url: Base URL of your application (default from config)
+    """
+    import asyncio
+    
+    reset_link = f"{app_url}/reset-password?token={token}"
+    
+    message = EmailMessage(
+        to=[user_email],
+        subject="Reset your password",
+        text_body=f"Click to reset your password: {reset_link}",
+        html_body=f"""
+        <p>Click the link below to reset your password:</p>
+        <a href="{reset_link}">Reset Password</a>
+        <p>This link expires in 1 hour.</p>
+        """,
+    )
+    
+    # Run blocking email send in thread pool
+    await asyncio.to_thread(send_email, message)
