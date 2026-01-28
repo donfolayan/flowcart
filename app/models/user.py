@@ -1,17 +1,25 @@
 import sqlalchemy as sa
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
+
+if TYPE_CHECKING:
+    from app.models.address import Address
+    from app.models.order import Order
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()'))
     username: Mapped[str] = mapped_column(sa.String(50), index=True, unique=True, nullable=False)
+    first_name: Mapped[Optional[str]] = mapped_column(sa.String(100), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(sa.String(100), nullable=True)
     email: Mapped[str] = mapped_column(sa.String(255), index=True, unique=True, nullable=False)
+    phone_number: Mapped[Optional[str]] = mapped_column(sa.String(20), nullable=True)
+    date_of_birth: Mapped[Optional[date]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     hashed_password: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("true"))
     is_verified: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
@@ -22,6 +30,13 @@ class User(Base):
     password_reset_token_expiry: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
+    
+    #Relationships
+    orders: Mapped[list["Order"]] = relationship("Order", back_populates="user")
+    addresses: Mapped[list["Address"]] = relationship("Address", back_populates="user", lazy="selectin")
+    
+    
+    
 
     class Config:
         json_schema_extra = {
@@ -29,6 +44,8 @@ class User(Base):
                 "username": "johndoe",
                 "email": "johndoe@example.com",
                 "hashed_password": "hashedPassword123!",
+                "first_name": "John",
+                "last_name": "Doe",
                 "is_active": True,
                 "is_verified": False,
                 "verification_token": "someVerificationToken123",

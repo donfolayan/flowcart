@@ -9,6 +9,8 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from .order import Order
+    from app.models.user import User
+
 
 
 class Address(Base):
@@ -33,5 +35,7 @@ class Address(Base):
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
     
     # Relationships
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="addresses")
     shipping_orders: Mapped[Optional[List["Order"]]] = relationship("Order", back_populates="shipping_address", foreign_keys="[Order.shipping_address_id]", lazy="selectin")
     billing_orders: Mapped[Optional[List["Order"]]] = relationship("Order", back_populates="billing_address", foreign_keys="[Order.billing_address_id]", lazy="selectin")
+    

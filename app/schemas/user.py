@@ -1,6 +1,7 @@
 import re
 import datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import (
     BaseModel,
     Field,
@@ -33,6 +34,12 @@ class UserCreate(UserBase):
         if not re.search(r"[!@#$%^&*()_\-+=\[\]{};:'\",.<>/?\\|`~]", v):
             raise ValueError("Password must contain at least one special character")
         return v
+    
+class UserProfile(BaseModel):
+    first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
+    last_name: Optional[str] = Field(None, max_length=100, description="Last name of the user")
+    phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
+    date_of_birth: Optional[datetime.datetime] = Field(None, description="Date of birth of the user")
 
 
 class UserLogin(BaseModel):
@@ -47,8 +54,8 @@ class UserLogin(BaseModel):
         return self
 
 
-class UserResponse(UserBase):
-    id: int = Field(..., description="Unique identifier of the user")
+class UserResponse(UserBase, UserProfile):
+    id: UUID = Field(..., description="Unique identifier of the user")
     is_active: bool = Field(True, description="Indicates if the user is active")
     is_verified: bool = Field(False, description="Indicates if the user is verified")
     created_at: datetime.datetime = Field(
