@@ -13,6 +13,7 @@ from app.models.user import User
 from app.core.security import hash_password, verify_password
 from app.core.jwt import create_access_token, create_refresh_token
 from app.schemas.email import VerifyEmailRequest, ResendVerificationRequest
+from app.schemas.auth import ForgotPasswordRequest
 from app.core.logs.logging_utils import get_logger
 from app.util.email import send_and_save_verification_email
 
@@ -182,3 +183,20 @@ async def resend_verification_email(
     await send_and_save_verification_email(user, db, app_url=config.FRONTEND_URL)
 
     return {"message": "Verification email resent successfully"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_session)):
+    query = select(User).where(User.email == payload.email)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        logger.info(
+            "Forgot password request failed - email not found",
+            extra={"email": payload.email},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Email not found"
+        )
+    

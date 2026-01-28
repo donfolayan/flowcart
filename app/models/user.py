@@ -18,6 +18,8 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
     verification_token: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     verification_token_expiry: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    password_reset_token: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
+    password_reset_token_expiry: Mapped[Optional[datetime]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now())
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
 
@@ -31,6 +33,8 @@ class User(Base):
                 "is_verified": False,
                 "verification_token": "someVerificationToken123",
                 "verification_token_expiry": "2023-01-02T00:00:00Z",
+                "password_reset_token": None,
+                "password_reset_token_expiry": None,
                 "created_at": "2023-01-01T00:00:00Z",
                 "updated_at": "2023-01-01T00:00:00Z"
             }
