@@ -13,7 +13,7 @@ from app.models.user import User
 from app.core.security import hash_password, verify_password
 from app.core.jwt import create_access_token, create_refresh_token
 from app.schemas.email import VerifyEmailRequest, ResendVerificationRequest
-from app.schemas.auth import ForgotPasswordRequest
+from app.schemas.auth import ForgotPasswordRequest, ResetPasswordRequest
 from app.core.logs.logging_utils import get_logger
 from app.util.email import send_and_save_verification_email, send_password_reset_email
 from app.util.tokens import generate_password_reset_token, create_password_reset_token_expiry
@@ -204,3 +204,26 @@ async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Dep
     await db.commit()
     await send_password_reset_email(user.email, token, app_url=config.FRONTEND_URL)
     return {"message": f"If the {User.email} exists, a password reset link has been sent."}
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_session)):
+    query = select(User).where(User.password_reset_token == payload.token)
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user or not user.password_reset_token_expiry or user.password_reset_token_expiry < datetime.now(timezone.utc):
+        logger.info(
+            "Password reset failed - invalid or expired token",
+            extra={"token": payload.token},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired password reset token"
+        )
+    
+    user.hashed_password = hash_password(payload.new_password)
+    user.password_reset_token = None
+    user.password_reset_token_expiry = None
+    await db.commit()
+    await db.refresh(user)
+    
+    return {"message": "Password has been reset successfully"}
