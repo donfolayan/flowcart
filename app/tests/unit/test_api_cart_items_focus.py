@@ -182,10 +182,6 @@ async def test_patch_cart_items_success(monkeypatch):
     fake_db = FakeDB(execute_results=[DummyRes(fake_cart_item), DummyRes(fake_cart)])
     payload = cart_routes.CartItemUpdate(
         quantity=3,
-        unit_price=Decimal("0"),
-        tax_amount=Decimal("0"),
-        discount_amount=Decimal("0"),
-        line_total=Decimal("0"),
     )
     res = await cart_routes.patch_cart_items(
         fake_cart.id,

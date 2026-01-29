@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 from decimal import Decimal
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
@@ -113,6 +113,19 @@ async def _add_item_to_cart(
                 if commit:
                     await db.commit()
 
+                # recompute and persist cart subtotal
+                try:
+                    sum_stmt = select(func.coalesce(func.sum(CartItem.line_total), 0)).where(
+                        CartItem.cart_id == cart.id
+                    )
+                    subtotal = (await db.execute(sum_stmt)).scalar_one()
+                    await db.execute(update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal))
+                    await db.commit()
+                except IntegrityError:
+                    logger.exception("Integrity error persisting cart subtotal after update")
+                except Exception:
+                    logger.exception("Failed to persist cart subtotal after update")
+
                 # return the updated item
                 q_stmt = select(CartItem).where(cartitem_where_clause())
                 q_res = await db.execute(q_stmt)
@@ -186,6 +199,17 @@ async def _add_item_to_cart(
                 await db.commit()
             else:
                 await db.flush()
+
+            # persist subtotal so Cart.total
+            try:
+                sum_stmt = select(func.coalesce(func.sum(CartItem.line_total), 0)).where(
+                    CartItem.cart_id == cart.id
+                )
+                subtotal = (await db.execute(sum_stmt)).scalar_one()
+                await db.execute(update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal))
+                await db.commit()
+            except Exception:
+                logger.exception("Failed to persist cart subtotal after insert")
 
             # attempt refresh, fallback to defensive query
             try:
