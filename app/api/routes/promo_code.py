@@ -76,7 +76,7 @@ async def create_promo_code(
     except Exception as e:
         await db.rollback()
         logger.error(
-            "Error creating promo code",
+            f"Error creating promo code: {e}",
             extra={"code": payload.code, "error": str(e)},
         )
         raise HTTPException(
@@ -124,7 +124,7 @@ async def activate_promo_code(
     except Exception as e:
         await db.rollback()
         logger.error(
-            "Error activating promo code",
+            f"Error activating promo code: {e}",
             extra={"promo_code_id": str(promo_code_id), "error": str(e)},
         )
         raise HTTPException(
@@ -172,7 +172,7 @@ async def deactivate_promo_code(
     except Exception as e:
         await db.rollback()
         logger.error(
-            "Error deactivating promo code",
+            f"Error deactivating promo code: {e}",
             extra={"promo_code_id": str(promo_code_id), "error": str(e)},
         )
         raise HTTPException(
@@ -216,7 +216,7 @@ async def update_promo_code(
     except Exception as e:
         await db.rollback()
         logger.error(
-            "Error updating promo code",
+            f"Error updating promo code: {e}",
             extra={"promo_code_id": str(promo_code_id), "error": str(e)},
         )
         raise HTTPException(
@@ -252,7 +252,7 @@ async def delete_promo_code(
     except Exception as e:
         await db.rollback()
         logger.error(
-            "Error deleting promo code",
+            f"Error deleting promo code: {e}",
             extra={"promo_code_id": str(promo_code_id), "error": str(e)},
         )
         raise HTTPException(

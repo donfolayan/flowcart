@@ -59,6 +59,18 @@ class PromoCodeBase(BaseModel):
         # If percentage-based, max_discount_cents should be set
         if has_percent and self.max_discount_cents is None:
             raise ValueError("max_discount_cents is required for percentage-based promo codes")
+
+        # Ensure promo_type aligns with provided discount fields
+        if self.promo_type == PromoTypeEnum.PERCENTAGE:
+            if not has_percent:
+                raise ValueError("promo_type 'percentage' requires percent_basis_points to be set and value_cents to be unset")
+            if has_fixed:
+                raise ValueError("promo_type 'percentage' cannot have value_cents set")
+        elif self.promo_type == PromoTypeEnum.FIXED_AMOUNT:
+            if not has_fixed:
+                raise ValueError("promo_type 'fixed_amount' requires value_cents to be set and percent_basis_points to be unset")
+            if has_percent:
+                raise ValueError("promo_type 'fixed_amount' cannot have percent_basis_points set")
         
         return self
     

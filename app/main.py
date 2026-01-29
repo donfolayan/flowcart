@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from app.core.errors import ErrorResponse
 from app.api.routes import (
     address,
@@ -106,8 +107,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "errors": exc.errors(),
         },
     )
-    payload = {"detail": exc.errors() if hasattr(exc, "errors") else str(exc)}
-    return JSONResponse(status_code=422, content=payload)
+    raw = exc.errors() if hasattr(exc, "errors") else str(exc)
+    payload = {"detail": raw}
+    return JSONResponse(status_code=422, content=jsonable_encoder(payload))
 
 
 @app.exception_handler(HTTPException)
