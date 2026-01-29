@@ -36,7 +36,7 @@ def setup_db_logging():
         if logger.isEnabledFor(logging.DEBUG) and statement:
             logger.debug(
                 "SQL query completed",
-                extra={"sql": statement[:100]},  # First 100 chars
+                extra={"sql": statement[:100]},
             )
 
     @event.listens_for(Engine, "handle_error", named=True)

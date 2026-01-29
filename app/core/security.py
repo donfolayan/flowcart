@@ -1,5 +1,4 @@
 import secrets
-from sqlalchemy import select
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
