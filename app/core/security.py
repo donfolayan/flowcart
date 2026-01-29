@@ -1,4 +1,5 @@
 import secrets
+from select import select
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
@@ -82,4 +83,14 @@ async def get_current_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
+    return user
+
+
+async def get_user_by_email(
+    email: str,
+    db: AsyncSession = Depends(get_session),
+) -> Optional[User]:
+    stmt = select(User).where(User.email == email.lower())
+    res = await db.execute(stmt)
+    user: Optional[User] = res.scalars().one_or_none()
     return user

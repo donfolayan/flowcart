@@ -41,6 +41,30 @@ class UserProfile(BaseModel):
     phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
     date_of_birth: Optional[datetime.datetime] = Field(None, description="Date of birth of the user")
 
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
+    last_name: Optional[str] = Field(None, max_length=100, description="Last name of the user")
+    phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
+    date_of_birth: Optional[datetime.datetime] = Field(None, description="Date of birth of the user")
+    email: Optional[EmailStr] = Field(None, description="Email address of the user")
+    username: Optional[str] = Field(None, max_length=50, description="Username of the user")
+    password: Optional[str] = Field(None, min_length=8, description="Password for the user")
+    
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[!@#$%^&*()_\-+=\[\]{};:'\",.<>/?\\|`~]", v):
+            raise ValueError("Password must contain at least one special character")
+        return v
+        
 
 class UserLogin(BaseModel):
     email: Optional[EmailStr] = Field(None, description="Email address of the user")

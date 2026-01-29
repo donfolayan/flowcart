@@ -19,7 +19,7 @@ class User(Base):
     last_name: Mapped[Optional[str]] = mapped_column(sa.String(100), nullable=True)
     email: Mapped[str] = mapped_column(sa.String(255), index=True, unique=True, nullable=False)
     phone_number: Mapped[Optional[str]] = mapped_column(sa.String(20), nullable=True)
-    date_of_birth: Mapped[Optional[date]] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    date_of_birth: Mapped[Optional[date]] = mapped_column(sa.Date(), nullable=True)
     hashed_password: Mapped[str] = mapped_column(sa.String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("true"))
     is_verified: Mapped[bool] = mapped_column(sa.Boolean, server_default=sa.text("false"))
