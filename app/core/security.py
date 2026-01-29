@@ -27,15 +27,18 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def generate_verification_token() -> str:
     return secrets.token_urlsafe(32)
 
-def create_verification_token_expiry(hours: int = 24) -> datetime: #24hr expiry
+
+def create_verification_token_expiry(hours: int = 24) -> datetime:  # 24hr expiry
     return datetime.now(timezone.utc) + timedelta(hours=hours)
 
+
 async def get_current_user(
+    db: AsyncSession,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: AsyncSession = Depends(get_session),
 ) -> User:
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -88,7 +91,7 @@ async def get_current_user(
 
 async def get_user_by_email(
     email: str,
-    db: AsyncSession = Depends(get_session),
+    db: AsyncSession,
 ) -> Optional[User]:
     stmt = select(User).where(User.email == email.lower())
     res = await db.execute(stmt)
