@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-
+from app.core.errors import ErrorResponse
 from app.api.routes import (
     address,
     auth,
@@ -106,12 +106,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "errors": exc.errors(),
         },
     )
-    from app.core.errors import ErrorResponse
-
-    details = {"errors": exc.errors()}
-    payload = ErrorResponse(
-        code="VALIDATION_ERROR", message="Validation failed", details=details
-    ).model_dump()
+    payload = {"detail": exc.errors() if hasattr(exc, "errors") else str(exc)}
     return JSONResponse(status_code=422, content=payload)
 
 
@@ -127,7 +122,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "detail": exc.detail,
         },
     )
-    from app.core.errors import ErrorResponse
 
     detail = exc.detail
     if isinstance(detail, dict) and "code" in detail and "message" in detail:

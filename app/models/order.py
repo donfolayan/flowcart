@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .shipping import Shipping
     from .payment import Payment
     from .cart import Cart
+    from .user import User
 
 class Order(Base):
     __tablename__ = "orders"
@@ -75,6 +76,7 @@ class Order(Base):
     billing_address: Mapped[Optional["Address"]] = relationship("Address", foreign_keys=[billing_address_id], back_populates="billing_orders", lazy="selectin")
     shipping: Mapped[Optional["Shipping"]] = relationship("Shipping", back_populates="order", uselist=False, lazy="selectin")
     payment: Mapped[Optional["Payment"]] = relationship("Payment", back_populates="order", cascade="all, delete-orphan", uselist=False, lazy="selectin")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="orders", lazy="selectin")
     
     __mapper_args__ = {"version_id_col": version}
     
