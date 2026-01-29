@@ -1,5 +1,6 @@
 from typing import Optional
 from uuid import UUID
+from decimal import Decimal
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -9,6 +10,7 @@ from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.product import Product
 from app.core.logs.logging_utils import get_logger
+from app.enums.currency_enums import CurrencyEnum
 
 logger = get_logger("app.cart")
 
@@ -23,11 +25,13 @@ async def _add_item_to_cart(
     max_retries: int = 3,
 ) -> CartItem:
     """Add item to cart. If item with same variant_id exists, increments quantity."""
+    #Quantity Check
     if quantity <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be > 0"
         )
 
+    # Cart Existence Check
     if cart is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cart not found"
@@ -47,6 +51,10 @@ async def _add_item_to_cart(
 
     has_variants = bool(getattr(product, "variants", None))
     if has_variants and variant_id is None:
+        logger.info(
+            "Attempted to add product with variants without specifying variant_id",
+            extra={"product_id": str(product_id), "cart_id": str(cart.id)},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This product requires a variant_id to add to cart",
@@ -58,7 +66,7 @@ async def _add_item_to_cart(
                 CartItem.cart_id == cart.id,
                 CartItem.variant_id == variant_id,
             )
-        # variant_id is None -> match by product_id and ensure variant_id is NULL
+        # variant_id is None, match by product_id and ensure variant_id is NULL
         return and_(
             CartItem.cart_id == cart.id,
             CartItem.product_id == product_id,
@@ -111,15 +119,51 @@ async def _add_item_to_cart(
                 item = q_res.scalars().one_or_none()
                 return item
 
-            # No existing item -> create new one
+
+            # determine unit price from variant (if present) or product base_price
+            unit_price: Optional[Decimal] = None
+            chosen_variant = None
+            if variant_id is not None:
+                for v in getattr(product, "variants", []) or []:
+                    if getattr(v, "id", None) == variant_id:
+                        chosen_variant = v
+                        break
+                if chosen_variant is not None and getattr(chosen_variant, "price", None) is not None:
+                    unit_price = Decimal(chosen_variant.price)
+            if unit_price is None:
+                base_price = getattr(product, "base_price", None)
+                unit_price = Decimal(base_price) if base_price is not None else None
+
+            if unit_price is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Price unavailable for product or variant",
+                )
+                
+            product_snapshot = {
+                "id": str(product.id),
+                "name": product.name,
+                "sku": getattr(product, "sku", None),
+                "price": str(unit_price),
+                "attributes": getattr(product, "attributes", {}),
+            }
+
+            # Construct the CartItem using server-trusted values only.
             new_item = CartItem(
                 cart_id=cart.id,
                 variant_id=variant_id,  # may be None
                 product_id=product_id,
                 quantity=quantity,
+                product_name=product.name,
+                product_snapshot=product_snapshot,
+                unit_price_currency=CurrencyEnum.USD,
+                unit_price=unit_price,
+                tax_amount=Decimal("0.00"),
+                discount_amount=Decimal("0.00"),
             )
-            db.add(new_item)
 
+            # Add the new item to the session and flush so `new_item.id`
+            db.add(new_item)
             await db.flush()
 
             # bump version

@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.models.cart import Cart
+from app.models.user import User
 from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart")
@@ -34,8 +35,13 @@ async def get_or_create_cart(
     session_id: str,
 ) -> Cart:
     """Retrieve existing cart for user/session or create a new one."""
-    if user_id:
-        stmt = select(Cart).where(Cart.user_id == user_id, Cart.status == "active")
+    # `get_current_user_optional` may return a `User` instance or a UUID.
+    uid: Optional[User | UUID] = user_id
+    if isinstance(uid, User):
+        uid = getattr(uid, "id", None)
+
+    if uid:
+        stmt = select(Cart).where(Cart.user_id == uid, Cart.status == "active")
     else:
         stmt = select(Cart).where(
             Cart.session_id == session_id, Cart.status == "active"
@@ -45,8 +51,7 @@ async def get_or_create_cart(
     cart = result.scalars().first()
     if cart:
         return cart
-
-    cart = Cart(user_id=user_id, session_id=session_id, status="active", version=1)
+    cart = Cart(user_id=uid, session_id=session_id, status="active", version=1)
     db.add(cart)
     try:
         await db.commit()
@@ -56,7 +61,7 @@ async def get_or_create_cart(
         logger.debug(
             "IntegrityError on cart creation, likely due to race condition. Retrying fetch.",
             extra={
-                "user_id": str(user_id) if user_id else None,
+                "user_id": str(uid) if uid else None,
                 "session_id": session_id,
             },
         )
@@ -64,9 +69,8 @@ async def get_or_create_cart(
             await db.rollback()
         except Exception:
             pass
-
-        if user_id:
-            stmt = select(Cart).where(Cart.user_id == user_id, Cart.status == "active")
+        if uid:
+            stmt = select(Cart).where(Cart.user_id == uid, Cart.status == "active")
         else:
             stmt = select(Cart).where(
                 Cart.session_id == session_id, Cart.status == "active"
@@ -78,7 +82,7 @@ async def get_or_create_cart(
         logger.exception(
             "Failed to create or retrieve cart",
             extra={
-                "user_id": str(user_id) if user_id else None,
+                "user_id": str(uid) if uid else None,
                 "session_id": session_id,
             },
         )

@@ -9,8 +9,6 @@ from app.enums.currency_enums import CurrencyEnum
 class CartItemBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    cart_id: UUID = Field(..., description="ID of the cart to which the item belongs")
-
     product_id: UUID = Field(..., description="ID of the product")
     variant_id: Optional[UUID] = Field(
         None, description="ID of the product variant, if applicable"
@@ -41,8 +39,16 @@ class CartItemBase(BaseModel):
     )
 
 
-class CartItemCreate(CartItemBase):
-    pass
+class CartItemCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    product_id: UUID = Field(..., description="ID of the product")
+    variant_id: Optional[UUID] = Field(
+        None, description="ID of the product variant, if applicable"
+    )
+    quantity: int = Field(
+        default=1, gt=0, description="Quantity of the product in the cart item"
+    )
 
 
 class CartItemUpdate(BaseModel):
@@ -51,21 +57,11 @@ class CartItemUpdate(BaseModel):
     quantity: Optional[int] = Field(
         None, gt=0, description="Quantity of the product in the cart item"
     )
-    unit_price: Optional[Decimal] = Field(None, description="Unit price of the product")
-    tax_amount: Optional[Decimal] = Field(
-        None, description="Tax amount for the cart item"
-    )
-    discount_amount: Optional[Decimal] = Field(
-        None, description="Discount amount for the cart item"
-    )
-    line_total: Optional[Decimal] = Field(
-        None,
-        description="Total amount for this cart item (unit price * quantity - discount + tax)",
-    )
 
 
 class CartItemResponse(CartItemBase):
     id: UUID = Field(..., description="Unique identifier of the cart item")
+    cart_id: UUID = Field(..., description="ID of the cart to which the item belongs")
     line_total: Decimal = Field(
         ...,
         description="Total amount for this cart item (unit price * quantity - discount + tax)",

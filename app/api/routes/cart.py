@@ -2,6 +2,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_session
 from app.models.cart import Cart
@@ -51,6 +52,16 @@ async def create_cart(
     try:
         await db.commit()
         await db.refresh(new_cart)
+    except IntegrityError as ie:
+        await db.rollback()
+        logger.exception(
+            "Integrity error creating cart",
+            extra={"user_id": str(user_id), "session_id": session_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Integrity error creating cart",
+        ) from ie
     except Exception as e:
         await db.rollback()
         logger.exception(

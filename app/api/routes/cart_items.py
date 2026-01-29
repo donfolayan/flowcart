@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,21 +10,23 @@ from app.db.session import get_session
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.schemas.cart import CartResponse
-from app.api.dependencies.cart import get_cart_or_404
+from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 from app.services.cart import _add_item_to_cart, _update_cart_item
+from app.core.permissions import get_current_user_optional
+from app.api.dependencies.session import get_or_create_session_id
 from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart_items")
 
-router = APIRouter(prefix="/cart/{cart_id}/items", tags=["Cart Items"])
+router = APIRouter(prefix="/cart", tags=["Cart Items"])
 
 
 @router.post(
-    "/",
+    "/{cart_id}/items",
     response_model=CartResponse,
     status_code=status.HTTP_201_CREATED,
-    description="Add an item to the cart",
+    description="Add an item to the cart (explicit cart_id)",
 )
 async def add_item_to_cart(
     cart_id: UUID,

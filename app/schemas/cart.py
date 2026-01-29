@@ -10,7 +10,6 @@ from app.schemas.cart_item import CartItemResponse
 
 class CartBase(BaseModel):
     user_id: Optional[UUID] = Field(None, description="ID of the user owning the cart")
-    session_id: Optional[str] = Field(None, description="Session ID for guest carts")
     status: Optional[CartStatus] = Field(None, description="Status of the cart")
     currency: Optional[CurrencyEnum] = Field(
         CurrencyEnum.USD, description="Currency of the cart"
