@@ -39,7 +39,7 @@ class UserProfile(BaseModel):
     first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
     last_name: Optional[str] = Field(None, max_length=100, description="Last name of the user")
     phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
-    date_of_birth: Optional[datetime.datetime] = Field(None, description="Date of birth of the user")
+    date_of_birth: Optional[datetime.date] = Field(None, description="Date of birth of the user")
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
