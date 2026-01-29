@@ -72,7 +72,7 @@ async def send_and_save_verification_email(
     expiry = create_verification_token_expiry(hours=24)
     
     user.verification_token = token
-    user.verification_token_expires = expiry
+    user.verification_token_expiry = expiry
     await session.commit()
     
     # Try to send email, but don't fail user registration if it does

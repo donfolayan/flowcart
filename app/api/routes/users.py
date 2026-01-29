@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
 from sqlalchemy import select, func
 from app.core.permissions import require_admin
 from app.core.security import get_current_user, hash_password
@@ -39,6 +40,7 @@ async def update_current_user(
 ) -> UserResponse:
     data = payload.model_dump(exclude_unset=True)
     new_email = data.get("email")
+    token = None
     if new_email:
         # case-insensitive lookup for existing email
         stmt = select(User).where(func.lower(User.email) == new_email.lower())
@@ -49,8 +51,12 @@ async def update_current_user(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email already in use",
             )
+        token = generate_verification_token()
+        expiry = create_verification_token_expiry()
         current_user.email = new_email
         current_user.is_verified = False
+        current_user.verification_token = token
+        current_user.verification_token_expiry = expiry
         
     if "password" in data:
         current_user.hashed_password = hash_password(data.pop("password"))
@@ -80,18 +86,7 @@ async def update_current_user(
 
     await db.refresh(current_user)
 
-    # If email changed, generate verification token and send email (don't fail the request on send error)
-    if new_email:
-        token = generate_verification_token()
-        expiry = create_verification_token_expiry()
-        current_user.verification_token = token
-        current_user.verification_token_expiry = expiry
-        db.add(current_user)
-        try:
-            await db.commit()
-        except Exception as e:
-            await db.rollback()
-            logger.error(f"Failed to commit verification token for user {current_user.id}: {e}")
+    if new_email and token:
         try:
             await send_verification_email(current_user.email, token)
         except Exception as e:
@@ -108,6 +103,13 @@ async def delete_current_user(
     try:
         await db.delete(current_user)
         await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        logger.error(f"Integrity error deleting user {current_user.id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict deleting user",
+        ) from e
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to delete user {current_user.id}: {e}")
@@ -115,3 +117,146 @@ async def delete_current_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete user",
         ) from e
+        
+@admin_router.get("/")
+async def list_users(
+    db: AsyncSession = Depends(get_session),
+) -> list[UserResponse]:
+    stmt = select(User)
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+    return [UserResponse.model_validate(user) for user in users]
+
+@admin_router.get("/{user_id}")
+async def get_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return UserResponse.model_validate(user)
+
+@admin_router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> None:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    try:
+        await db.delete(user)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        logger.error(f"Integrity error deleting user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict deleting user",
+        ) from e
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to delete user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete user",
+        ) from e
+        
+@admin_router.patch("/{user_id}")
+async def update_user(
+    user_id: UUID,
+    payload: UserUpdate,
+    db: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    data = payload.model_dump(exclude_unset=True)
+    if "password" in data:
+        user.hashed_password = hash_password(data.pop("password"))
+    allowed_fields = {"username", "email", "first_name", "last_name", "phone_number", "date_of_birth"}
+    for key, value in data.items():
+        if key in allowed_fields:
+            setattr(user, key, value)
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        logger.error(f"Integrity error updating user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict updating user",
+        ) from e
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to update user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user",
+        ) from e
+    await db.refresh(user)
+    return UserResponse.model_validate(user)
+
+@admin_router.post("/make-admin")
+async def make_user_admin(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    if user.is_admin:
+        logger.info(f"User {user_id} is already an admin")
+        return UserResponse.model_validate(user)
+    
+    user.is_admin = True
+    db.add(user)
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to make user {user_id} admin: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user",
+        ) from e
+    await db.refresh(user)
+    return UserResponse.model_validate(user)
+
+@admin_router.post("/revoke-admin")
+async def revoke_user_admin(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    if not user.is_admin:
+        logger.info(f"User {user_id} is not an admin")
+        return UserResponse.model_validate(user)
+    
+    user.is_admin = False
+    db.add(user)
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to revoke admin from user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user",
+        ) from e
+    await db.refresh(user)
+    return UserResponse.model_validate(user)

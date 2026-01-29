@@ -37,8 +37,8 @@ def create_verification_token_expiry(hours: int = 24) -> datetime:  # 24hr expir
 
 
 async def get_current_user(
-    db: AsyncSession,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_session),
 ) -> User:
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -93,7 +93,9 @@ async def get_user_by_email(
     email: str,
     db: AsyncSession,
 ) -> Optional[User]:
-    stmt = select(User).where(User.email == email.lower())
+    from sqlalchemy import func
+
+    stmt = select(User).where(func.lower(User.email) == email.lower())
     res = await db.execute(stmt)
     user: Optional[User] = res.scalars().one_or_none()
     return user
