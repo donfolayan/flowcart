@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from app.core.errors import ErrorResponse
 from app.api.routes import (
     address,
@@ -56,6 +57,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     )
+
+# Add HTTPS redirect middleware on production
+if config.ENVIRONMENT == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 # Add request ID middleware for tracing
 app.add_middleware(RequestIdMiddleware)

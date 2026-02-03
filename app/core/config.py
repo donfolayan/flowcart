@@ -43,6 +43,8 @@ class Config(BaseSettings):
     LOG_FILE_APP: str = "app.log"
     LOG_FILE_DB: str = "db.log"
     
+    ENVIRONMENT: str = "development"
+    
     FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
