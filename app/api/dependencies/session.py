@@ -1,9 +1,7 @@
-import secrets
 import os
+import secrets
 from typing import Optional
-
-from fastapi import Cookie, Response
-from fastapi import HTTPException
+from fastapi import Cookie, Response, HTTPException, status
 
 SESSION_COOKIE_NAME = "session_id"
 DEFAULT_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
@@ -25,7 +23,7 @@ async def get_or_create_session_id(
     """
     secure_cookie: Optional[bool] = None
     max_age: int = DEFAULT_MAX_AGE
-    
+
     if secure_cookie is None:
         env = os.getenv("FASTAPI_ENV", os.getenv("ENV", "production"))
         secure_cookie = env.lower() != "development"
@@ -46,4 +44,16 @@ async def get_or_create_session_id(
         path="/",
         max_age=max_age,
     )
+    return session_id
+
+
+async def get_session_id(
+    session_id: Optional[str] = Cookie(None),
+) -> Optional[str]:
+    """Retrieve session_id from cookie if it exists."""
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session ID cookie is missing",
+        )
     return session_id
