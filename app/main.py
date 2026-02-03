@@ -25,6 +25,7 @@ from app.api.routes import (
     stripe_webhook,
     upload,
     variants,
+    users
 )
 from app.core.config import config
 from app.core.logs.logging import setup_logging
@@ -96,6 +97,8 @@ api.include_router(order.admin_router)
 api.include_router(payment.router)
 api.include_router(promo_code.router)
 api.include_router(promo_code.admin_router)
+api.include_router(users.router)
+api.include_router(users.admin_router)
 api.include_router(stripe_webhook.router)
 app.include_router(api)
 
