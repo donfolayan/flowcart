@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from datetime import datetime, timezone
 from fastapi import Response, HTTPException
 from sqlalchemy.exc import IntegrityError
-from decimal import Decimal
 
 from app.api.routes import cart_items as cart_routes
 

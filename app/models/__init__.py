@@ -13,6 +13,7 @@ from .product_media import ProductMedia  # noqa: F401
 from .media import Media  # noqa: F401
 from .product_variant import ProductVariant  # noqa: F401
 from .order_item import OrderItem  # noqa: F401
+from .refresh_token import RefreshToken  # noqa: F401
 
 __all__ = [
     "Address",
@@ -28,4 +29,5 @@ __all__ = [
     "Media",
     "ProductVariant",
     "OrderItem",
+    "RefreshToken",
 ] # noqa: F401

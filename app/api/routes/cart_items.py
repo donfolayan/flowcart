@@ -9,7 +9,7 @@ from app.db.session import get_session
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.schemas.cart import CartResponse
-from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
+from app.api.dependencies.cart import get_or_create_cart
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 from app.services.cart import _add_item_to_cart, _update_cart_item
 from app.api.dependencies.session import get_or_create_session_id

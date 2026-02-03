@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import Depends, HTTPException, status, Response
+from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 from fastapi import HTTPException, status
 from app.core.config import config
 from jose import JWTError, jwt
@@ -11,6 +12,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = config.REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def create_access_token(data: dict) -> str:
+    """Create short-lived access token (stateless)."""
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
@@ -18,11 +20,31 @@ def create_access_token(data: dict) -> str:
     return encoded_jwt
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, token_id: UUID) -> str:
+    """
+    Create refresh token with jti (JWT ID) for DB tracking.
+    
+    Args:
+        data: Token payload (must contain 'sub' with user_id)
+        token_id: UUID of the RefreshToken record in DB
+    
+    Returns:
+        Encoded JWT refresh token
+    """
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode = {**data, "exp": expire, "scope": "refresh_token"}
+    to_encode = {
+        **data,
+        "exp": expire,
+        "scope": "refresh_token",
+        "jti": str(token_id),  # JWT ID links to DB record
+    }
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
+
+
+def get_refresh_token_expiry() -> datetime:
+    """Get expiry datetime for refresh token."""
+    return datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
 
 def decode_access_token(token: str) -> dict:

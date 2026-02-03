@@ -9,6 +9,7 @@ from datetime import datetime, date
 if TYPE_CHECKING:
     from app.models.address import Address
     from app.models.order import Order
+    from app.models.refresh_token import RefreshToken
 
 class User(Base):
     __tablename__ = "users"
@@ -34,6 +35,7 @@ class User(Base):
     #Relationships
     orders: Mapped[list["Order"]] = relationship("Order", back_populates="user")
     addresses: Mapped[list["Address"]] = relationship("Address", back_populates="user", lazy="selectin")
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     
     
     
