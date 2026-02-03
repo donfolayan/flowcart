@@ -1,5 +1,5 @@
 import uvicorn
-from typing import Dict
+from typing import Dict, cast, Callable
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,9 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.api.routes.auth import limiter
 from app.core.errors import ErrorResponse
 from app.api.routes import (
     address,
@@ -58,6 +61,12 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     )
+
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded, 
+    cast(Callable, _rate_limit_exceeded_handler)
+)
 
 # Add HTTPS redirect middleware on production
 if config.ENVIRONMENT == "production":
