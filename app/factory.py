@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import config
 from app.core.logs.logging import setup_logging
 from app.core.logs.logging_utils import RequestIdMiddleware, get_logger
-from app.core.middleware import SecurityHeadersMiddleware
+from app.api.middleware import SecurityHeadersMiddleware
 from app.db.logging import setup_db_logging
 from app.db.session import get_session
 
@@ -70,7 +70,7 @@ def create_app() -> FastAPI:
     )
 
     # Register exception handlers
-    from app.core.exception_handlers import register_exception_handlers
+    from app.api.exception_handlers import register_exception_handlers
     register_exception_handlers(application)
 
     # Register routes
