@@ -39,7 +39,11 @@ async def validation_exception_handler(request: Request, exc: Exception) -> JSON
             "errors": validation_exc.errors(),
         },
     )
-    payload = {"detail": validation_exc.errors()}
+    payload = ErrorResponse(
+        code="VALIDATION_ERROR",
+        message="Request validation failed",
+        details={"errors": validation_exc.errors()},
+    ).model_dump()
     return JSONResponse(status_code=422, content=jsonable_encoder(payload))
 
 
