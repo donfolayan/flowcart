@@ -5,14 +5,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.session import get_session
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.schemas.cart import CartResponse
-from app.api.dependencies.cart import get_cart_or_404
+from app.api.dependencies.cart import get_cart_or_404, get_or_create_cart
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 from app.services.cart import _add_item_to_cart, _update_cart_item
+from app.api.dependencies.session import get_or_create_session_id
+from app.core.permissions import get_current_user_optional
 from app.core.logs.logging_utils import get_logger
 
 logger = get_logger("app.cart_items")
@@ -21,18 +22,19 @@ router = APIRouter(prefix="/cart", tags=["Cart Items"])
 
 
 @router.post(
-    "/{cart_id}/items",
+    "/items",
     response_model=CartResponse,
     status_code=status.HTTP_201_CREATED,
-    description="Add an item to the cart (explicit cart_id)",
+    description="Add an item to the cart",
 )
 async def add_item_to_cart(
-    cart_id: UUID,
     payload: CartItemCreate,
     response: Response,
     db: AsyncSession = Depends(get_session),
+    user_id: Optional[UUID] = Depends(get_current_user_optional),
+    session_id: str = Depends(get_or_create_session_id),
 ):
-    cart: Cart = await get_cart_or_404(cart_id, db)
+    cart: Cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
 
     if getattr(cart, "status", None) != "active":
         raise HTTPException(
@@ -68,7 +70,7 @@ async def add_item_to_cart(
     except IntegrityError as ie:
         logger.debug(
             "IntegrityError when adding item to cart",
-            extra={"cart_id": str(cart_id), "payload": payload.model_dump()},
+            extra={"payload": payload.model_dump()},
         )
         try:
             await db.rollback()
@@ -89,7 +91,7 @@ async def add_item_to_cart(
             pass
         logger.exception(
             "Failed to add item to cart",
-            extra={"cart_id": str(cart_id), "payload": payload.model_dump()},
+            extra={"payload": payload.model_dump()},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -107,12 +109,13 @@ async def add_item_to_cart(
     description="Update an item in the cart",
 )
 async def patch_cart_items(
-    cart_id: UUID,
     item_id: UUID,
     payload: CartItemUpdate,
     db: AsyncSession = Depends(get_session),
+    user_id: Optional[UUID] = Depends(get_current_user_optional),
+    session_id: str = Depends(get_or_create_session_id),
 ) -> CartResponse:
-    cart: Cart = await get_cart_or_404(cart_id, db)
+    cart: Cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
 
     if getattr(cart, "status", None) != "active":
         raise HTTPException(
@@ -178,7 +181,7 @@ async def patch_cart_items(
             pass
         logger.exception(
             "Failed to update cart item",
-            extra={"cart_id": str(cart_id), "item_id": str(item_id), "payload": payload.model_dump()},
+            extra={"item_id": str(item_id), "payload": payload.model_dump()},
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -190,9 +193,12 @@ async def patch_cart_items(
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cart_item(
-    cart_id: UUID, item_id: UUID, db: AsyncSession = Depends(get_session)
+    item_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    user_id: Optional[UUID] = Depends(get_current_user_optional),
+    session_id: str = Depends(get_or_create_session_id),
 ):
-    cart = await get_cart_or_404(cart_id, db)
+    cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
     stmt = select(CartItem).where(CartItem.id == item_id, CartItem.cart_id == cart.id)
     cart_item = (await db.execute(stmt)).scalars().one_or_none()
     if not cart_item:
