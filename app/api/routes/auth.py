@@ -7,6 +7,10 @@ from app.core.config import config
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from app.schemas.user import UserCreate, UserLogin
 from app.schemas.token import Token, RefreshTokenRequest
 from app.core.jwt import decode_refresh_token, get_refresh_token_expiry
@@ -25,6 +29,7 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+limiter = Limiter(key_func=get_remote_address)
 
 def get_device_id(request: Request) -> str:
     """Generate a device ID from user-agent and IP."""
@@ -123,6 +128,7 @@ async def register_user(
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 async def login_user(
     payload: UserLogin,
     request: Request,

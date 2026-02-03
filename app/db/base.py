@@ -7,9 +7,9 @@ DATABASE_URL = config.DATABASE_URL
 # Create async SQLAlchemy engine
 engine = create_async_engine(
     DATABASE_URL,
-    echo=False, #handled by logging config
+    echo=False,
     pool_pre_ping=True,
-    pool_size=5,
+    pool_size=20,
     max_overflow=10,
 )
 

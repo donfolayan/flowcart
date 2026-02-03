@@ -1,10 +1,13 @@
 import uvicorn
 from typing import Dict
 from contextlib import asynccontextmanager
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Depends, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.errors import ErrorResponse
 from app.api.routes import (
     address,
@@ -28,6 +31,7 @@ from app.core.registry import register_providers
 from app.db.listeners import register_listeners
 from app.db.logging import setup_db_logging
 from app.core.logs.logging_utils import RequestIdMiddleware, get_logger
+from app.db.session import get_session
 
 setup_logging()
 setup_db_logging()
@@ -44,10 +48,27 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Flowcart application")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="Flowcart API",
+    description="E-commerce backend API",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    )
 
 # Add request ID middleware for tracing
 app.add_middleware(RequestIdMiddleware)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[config.FRONTEND_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 api = APIRouter(prefix="/api/v1")
 
@@ -77,6 +98,19 @@ app.include_router(api)
 @app.get("/", tags=["Sanity Check"])
 def read_root() -> Dict[str, str]:
     return {"msg": "Application is running"}
+
+@app.get("/health", tags=["Health Check"])
+async def health_check(db: AsyncSession = Depends(get_session)) -> Dict[str, str]:
+    """Health check endpoint to verify application and database connectivity."""
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.error("Database connectivity check failed", exc_info=e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connectivity check failed",
+        ) from e
+    return {"status": "ok"}
 
 
 @app.exception_handler(Exception)
