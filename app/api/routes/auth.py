@@ -91,6 +91,7 @@ async def create_and_store_refresh_token(
 
 
 @router.post("/register", response_model=Token)
+@limiter.limit("3/minute")
 async def register_user(
     payload: UserCreate,
     request: Request,
@@ -312,6 +313,7 @@ async def resend_verification_email(
 
 
 @router.post("/forgot-password")
+@limiter.limit("3/minute")
 async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_session)):
     query = select(User).where(User.email == payload.email)
     result = await db.execute(query)

@@ -127,6 +127,33 @@ async def list_users(
     users = result.scalars().all()
     return [UserResponse.model_validate(user) for user in users]
 
+@admin_router.get("/stats")
+async def get_user_stats(
+    db: AsyncSession = Depends(get_session),
+) -> dict[str, int]:
+    total_users_stmt = select(func.count(User.id))
+    result = await db.execute(total_users_stmt)
+    total_users = result.scalar_one()
+    
+    verified_users_stmt = select(func.count(User.id)).where(User.is_verified)
+    result = await db.execute(verified_users_stmt)
+    verified_users = result.scalar_one()
+    
+    admin_users_stmt = select(func.count(User.id)).where(User.is_admin)
+    result = await db.execute(admin_users_stmt)
+    admin_users = result.scalar_one()
+    
+    active_users_stmt = select(func.count(User.id)).where(User.is_active)
+    result = await db.execute(active_users_stmt)
+    active_users = result.scalar_one()
+    
+    return {
+        "total_users": total_users,
+        "verified_users": verified_users,
+        "admin_users": admin_users,
+        "active_users": active_users,
+    }
+
 @admin_router.get("/{user_id}")
 async def get_user(
     user_id: UUID,
@@ -260,30 +287,3 @@ async def revoke_user_admin(
         ) from e
     await db.refresh(user)
     return UserResponse.model_validate(user)
-
-@admin_router.get("/stats")
-async def get_user_stats(
-    db: AsyncSession = Depends(get_session),
-) -> dict[str, int]:
-    total_users_stmt = select(func.count(User.id))
-    result = await db.execute(total_users_stmt)
-    total_users = result.scalar_one()
-    
-    verified_users_stmt = select(func.count(User.id)).where(User.is_verified)
-    result = await db.execute(verified_users_stmt)
-    verified_users = result.scalar_one()
-    
-    admin_users_stmt = select(func.count(User.id)).where(User.is_admin)
-    result = await db.execute(admin_users_stmt)
-    admin_users = result.scalar_one()
-    
-    active_users_stmt = select(func.count(User.id)).where(User.is_active)
-    result = await db.execute(active_users_stmt)
-    active_users = result.scalar_one()
-    
-    return {
-        "total_users": total_users,
-        "verified_users": verified_users,
-        "admin_users": admin_users,
-        "active_users": active_users,
-    }
