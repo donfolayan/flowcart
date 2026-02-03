@@ -2,9 +2,7 @@ import secrets
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException, Depends, status, Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,41 +12,11 @@ from app.db.user import get_user_by_id
 from app.models.user import User
 from app.core.jwt import decode_access_token
 from app.core.logs.logging_utils import get_logger
-from app.core.config import config
 
 logger = get_logger("app.security")
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses."""
-    
-    async def dispatch(self, request: Request, call_next) -> Response:
-        response = await call_next(request)
-        
-        # Prevent MIME type sniffing
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        
-        # Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
-        
-        # XSS protection (legacy, but doesn't hurt)
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        
-        # Control referrer information
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        
-        # Restrict browser features
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-        
-        # HSTS - only in production over HTTPS
-        if config.ENVIRONMENT == "production":
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        
-        return response
-
 
 
 def hash_password(password: str) -> str:

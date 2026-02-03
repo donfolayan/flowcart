@@ -314,7 +314,11 @@ async def resend_verification_email(
 
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
-async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_session)):
+async def forgot_password(
+    request: Request,
+    payload: ForgotPasswordRequest, 
+    db: AsyncSession = Depends(get_session)
+):
     query = select(User).where(User.email == payload.email)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
