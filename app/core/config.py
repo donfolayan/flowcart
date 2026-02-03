@@ -45,6 +45,9 @@ class Config(BaseSettings):
     
     ENVIRONMENT: str = "development"
     
+    SENTRY_DSN: Optional[str] = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    
     FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(

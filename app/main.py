@@ -38,11 +38,19 @@ from app.db.logging import setup_db_logging
 from app.core.logs.logging_utils import RequestIdMiddleware, get_logger
 from app.db.session import get_session
 from app.core.security import SecurityHeadersMiddleware
+import sentry_sdk
 
 setup_logging()
 setup_db_logging()
 
 logger = get_logger("app")
+
+if config.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=config.SENTRY_DSN,
+        environment=config.ENVIRONMENT,
+        traces_sample_rate=config.SENTRY_TRACES_SAMPLE_RATE,
+    )
 
 
 @asynccontextmanager
