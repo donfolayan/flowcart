@@ -28,7 +28,7 @@ from app.api.routes import (
     stripe_webhook,
     upload,
     variants,
-    users
+    users,
 )
 from app.core.config import config
 from app.core.logs.logging import setup_logging
@@ -37,6 +37,7 @@ from app.db.listeners import register_listeners
 from app.db.logging import setup_db_logging
 from app.core.logs.logging_utils import RequestIdMiddleware, get_logger
 from app.db.session import get_session
+from app.core.security import SecurityHeadersMiddleware
 
 setup_logging()
 setup_db_logging()
@@ -60,17 +61,19 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    )
+)
 
 app.state.limiter = limiter
 app.add_exception_handler(
-    RateLimitExceeded, 
-    cast(Callable, _rate_limit_exceeded_handler)
+    RateLimitExceeded, cast(Callable, _rate_limit_exceeded_handler)
 )
 
 # Add HTTPS redirect middleware on production
 if config.ENVIRONMENT == "production":
     app.add_middleware(HTTPSRedirectMiddleware)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Add request ID middleware for tracing
 app.add_middleware(RequestIdMiddleware)
@@ -115,6 +118,7 @@ app.include_router(api)
 @app.get("/", tags=["Sanity Check"])
 def read_root() -> Dict[str, str]:
     return {"msg": "Application is running"}
+
 
 @app.get("/health", tags=["Health Check"])
 async def health_check(db: AsyncSession = Depends(get_session)) -> Dict[str, str]:
