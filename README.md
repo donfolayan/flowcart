@@ -171,7 +171,6 @@ FlowCart is built with a carefully selected set of modern, production-proven tec
 |------------|---------|
 | [**PostgreSQL**](https://postgresql.org) | Robust, scalable relational database |
 | [**SQLAlchemy 2.0**](https://sqlalchemy.org) | Async ORM with modern Python support |
-| [**SQLModel**](https://sqlmodel.tiangolo.com) | Pydantic + SQLAlchemy integration for cleaner models |
 | [**Alembic**](https://alembic.sqlalchemy.org) | Database migration management |
 | [**asyncpg**](https://github.com/MagicStack/asyncpg) | Fast async PostgreSQL driver |
 

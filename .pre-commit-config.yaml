@@ -19,7 +19,6 @@ repos:
         additional_dependencies:
           - "fastapi"
           - "uvicorn"
-          - "sqlmodel"
           - "python-jose"
           - "python-decouple"
           - "asyncpg"
