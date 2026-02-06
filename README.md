@@ -10,9 +10,6 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-<!-- Uncomment when GitHub Actions is set up -->
-<!-- [![CI](https://github.com/YOUR_USERNAME/flowcart/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/flowcart/actions/workflows/ci.yml) -->
-
 [Features](#-features) • [Quick Start](#-quick-start) • [API Docs](#-api-documentation) • [Contributing](#-contributing)
 
 </div>
@@ -341,7 +338,7 @@ The fastest way to get started:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/flowcart.git
+git clone https://github.com/donfolayan/flowcart.git
 cd flowcart
 
 # Create environment file
@@ -367,7 +364,7 @@ For a traditional local setup:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/flowcart.git
+git clone https://github.com/donfolayan/flowcart.git
 cd flowcart
 
 # Create and activate virtual environment
@@ -397,7 +394,7 @@ If you prefer pip over uv:
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/YOUR_USERNAME/flowcart.git
+git clone https://github.com/donfolayan/flowcart.git
 cd flowcart
 
 # Create virtual environment
@@ -1024,7 +1021,7 @@ We welcome contributions to FlowCart! Here's how you can help.
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/flowcart.git
+git clone https://github.com/donfolayan/flowcart.git
 cd flowcart
 
 # Create virtual environment
@@ -1121,6 +1118,6 @@ SOFTWARE.
 
 **Built with ❤️ using FastAPI**
 
-[Report Bug](https://github.com/YOUR_USERNAME/flowcart/issues) • [Request Feature](https://github.com/YOUR_USERNAME/flowcart/issues) • [Discussions](https://github.com/YOUR_USERNAME/flowcart/discussions)
+[Report Bug](https://github.com/donfolayan/flowcart/issues) • [Request Feature](https://github.com/donfolayan/flowcart/issues) • [Discussions](https://github.com/donfolayan/flowcart/discussions)
 
 </div>
