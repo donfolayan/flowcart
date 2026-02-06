@@ -265,7 +265,7 @@ flowcart/
 │   │   ├── payment/              # Payment provider integrations
 │   │   └── storage/              # File storage providers
 │   │
-│   ├── models/                   # SQLAlchemy/SQLModel database models
+│   ├── models/                   # SQLAlchemy database models
 │   │   ├── user.py               # User model
 │   │   ├── product.py            # Product model
 │   │   ├── product_variant.py    # Product variants
