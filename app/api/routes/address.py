@@ -1,14 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from uuid import UUID
 
 from app.db.session import get_session
-from app.models.address import Address
 from app.schemas.address import AddressCreate, AddressUpdate, AddressResponse
-from app.core.logs.logging_utils import get_logger
-
-logger = get_logger("app.address")
+from app.services.address import AddressService
 
 router = APIRouter(prefix="/address", tags=["Address"])
 
@@ -18,34 +14,8 @@ async def create_address(
     payload: AddressCreate, db: AsyncSession = Depends(get_session)
 ) -> AddressResponse:
     """Create a new address."""
-    new_address = Address(**payload.model_dump())
-    db.add(new_address)
-    try:
-        await db.commit()
-    except IntegrityError as ie:
-        logger.debug("IntegrityError on creating address: %s", str(ie))
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Integrity Error - {str(ie)}",
-        ) from ie
-    except Exception as e:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        logger.exception(
-            "Failed to create address",
-            extra={"payload": payload.model_dump()},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error - {str(e)}",
-        )
-    await db.refresh(new_address)
+    service = AddressService(db)
+    new_address = await service.create(payload=payload)
     return AddressResponse.model_validate(new_address)
 
 
@@ -54,12 +24,8 @@ async def get_address(
     address_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> AddressResponse:
     """Retrieve an address by ID."""
-    address = await db.get(Address, address_id)
-    if not address:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Address not found",
-        )
+    service = AddressService(db)
+    address = await service.get(address_id=address_id)
     return AddressResponse.model_validate(address)
 
 
@@ -68,39 +34,6 @@ async def update_address(
     address_id: UUID, payload: AddressUpdate, db: AsyncSession = Depends(get_session)
 ) -> AddressResponse:
     """Update an exisiting address."""
-    address = await db.get(Address, address_id)
-
-    if not address:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Address not found",
-        )
-
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(address, key, value)
-    try:
-        await db.commit()
-    except IntegrityError as ie:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Integrity Error - {str(ie)}",
-        ) from ie
-    except Exception as e:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        logger.exception(
-            "Failed to update address",
-            extra={"address_id": str(address_id), "payload": payload.model_dump()},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error - {str(e)}",
-        )
-    await db.refresh(address)
+    service = AddressService(db)
+    address = await service.update(address_id=address_id, payload=payload)
     return AddressResponse.model_validate(address)
