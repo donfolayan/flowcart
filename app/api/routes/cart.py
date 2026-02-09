@@ -48,6 +48,13 @@ async def create_cart(
         user_id=user_id if user_id else None,
         session_id=session_id,
     )
+    
+    if not new_cart:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create cart",
+        )
+        
     db.add(new_cart)
     try:
         await db.commit()

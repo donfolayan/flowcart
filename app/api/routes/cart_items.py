@@ -149,7 +149,6 @@ async def patch_cart_items(
             )
 
         # update the item
-
         await _update_cart_item(
             db=db,
             cart_item=cart_item,
@@ -158,7 +157,6 @@ async def patch_cart_items(
         )
 
         # reload cart
-
         try:
             _opt = selectinload(Cart.items)
         except InvalidRequestError:

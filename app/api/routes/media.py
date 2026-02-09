@@ -41,7 +41,7 @@ async def get_media(
             status_code=status.HTTP_404_NOT_FOUND, detail="Media not found"
         )
 
-    return media
+    return MediaResponse.model_validate(media)
 
 
 @router.get("/", description="List all media", response_model=List[MediaResponse])
@@ -100,4 +100,4 @@ async def create_media(
         ) from e
 
     response.headers["Location"] = f"/media/{new_media.id}"
-    return new_media
+    return MediaResponse.model_validate(new_media)
