@@ -1,17 +1,15 @@
 from uuid import UUID
-from typing import List, Optional
-from fastapi import APIRouter, Depends, status, HTTPException, Response
-from sqlalchemy import delete, select
+from typing import List
+from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError, DataError
 from app.core.permissions import require_admin
 from app.db.session import get_session
-from app.models.product import Product
-from app.models.product_variant import ProductVariant
-from app.schemas.product_variant import ProductVariantResponse, ProductVariantCreate, ProductVariantUpdate
-from app.core.logs.logging_utils import get_logger
-
-logger = get_logger("app.variant")
+from app.schemas.product_variant import (
+    ProductVariantResponse,
+    ProductVariantCreate,
+    ProductVariantUpdate,
+)
+from app.services.variant import VariantService
 
 router = APIRouter(
     prefix="/variants",
@@ -33,15 +31,8 @@ admin_router = APIRouter(
 async def get_product_variant_by_id(
     variant_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> ProductVariantResponse:
-    q = select(ProductVariant).where(ProductVariant.id == variant_id)
-    r = await db.execute(q)
-    variant: Optional[ProductVariant] = r.scalars().one_or_none()
-
-    if not variant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
-        )
-
+    service = VariantService(db)
+    variant = await service.get_by_id(variant_id=variant_id)
     return ProductVariantResponse.model_validate(variant)
 
 
@@ -54,9 +45,8 @@ async def get_product_variant_by_id(
 async def get_product_variants_by_product_id(
     product_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> List[ProductVariantResponse]:
-    q = select(ProductVariant).where(ProductVariant.product_id == product_id)
-    r = await db.execute(q)
-    variants: List[ProductVariant] = list(r.scalars().all())
+    service = VariantService(db)
+    variants = await service.list_by_product(product_id=product_id)
     return [ProductVariantResponse.model_validate(variant) for variant in variants]
 
 
@@ -72,40 +62,8 @@ async def create_product_variant(
     response: Response,
     db: AsyncSession = Depends(get_session),
 ) -> ProductVariantResponse:
-    payload_data = payload.model_dump()
-
-    if not payload_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid payload - no data provided",
-        )
-
-    product_query = select(Product).where(Product.id == product_id)
-    result_query = await db.execute(product_query)
-    base_product = result_query.scalars().one_or_none()
-
-    if base_product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Base product not found"
-        )
-
-    variant = ProductVariant(**payload_data, product_id=product_id)
-    variant.product_id = product_id
-
-    try:
-        db.add(variant)
-        await db.commit()
-        await db.refresh(variant)
-    except Exception as e:
-        logger.exception(
-            "Failed to create product variant",
-            extra={"product_id": str(product_id), "payload": payload.model_dump()},
-        )
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create product variant",
-        ) from e
+    service = VariantService(db)
+    variant = await service.create(product_id=product_id, payload=payload)
 
     response.headers["Location"] = f"/variants/{variant.id}"
     return ProductVariantResponse.model_validate(variant)
@@ -119,28 +77,8 @@ async def create_product_variant(
 async def delete_product_variant(
     variant_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> None:
-    q = select(ProductVariant).where(ProductVariant.id == variant_id)
-    r = await db.execute(q)
-    variant: Optional[ProductVariant] = r.scalars().one_or_none()
-
-    if not variant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
-        )
-
-    try:
-        await db.execute(delete(ProductVariant).where(ProductVariant.id == variant_id))
-        await db.commit()
-    except Exception as e:
-        await db.rollback()
-        logger.exception(
-            "Failed to delete product variant",
-            extra={"variant_id": str(variant_id)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete product variant",
-        ) from e
+    service = VariantService(db)
+    await service.delete(variant_id=variant_id)
 
 
 @admin_router.delete(
@@ -151,40 +89,8 @@ async def delete_product_variant(
 async def delete_product_variants(
     product_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> None:
-    q = select(ProductVariant).where(ProductVariant.product_id == product_id).limit(1)
-    r = await db.execute(q)
-    exists: ProductVariant = r.scalars().one_or_none()
-
-    if not exists:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No variants found for the product",
-        )
-
-    try:
-        query = delete(ProductVariant).where(ProductVariant.product_id == product_id)
-        await db.execute(query)
-        await db.commit()
-    except IntegrityError as e:
-        logger.debug(
-            "IntegrityError on deleting product variants",
-            extra={"product_id": str(product_id)},
-        )
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot delete product variants due to existing dependencies",
-        ) from e
-    except Exception as e:
-        await db.rollback()
-        logger.exception(
-            "Failed to delete product variants",
-            extra={"product_id": str(product_id)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete product variants",
-        ) from e
+    service = VariantService(db)
+    await service.delete_by_product(product_id=product_id)
 
 @admin_router.patch(
     "/{variant_id}",
@@ -197,77 +103,6 @@ async def update_product_variant(
     payload: ProductVariantUpdate,
     db: AsyncSession = Depends(get_session),
 ) -> ProductVariantResponse:
-    q = select(ProductVariant).where(ProductVariant.id == variant_id)
-    r = await db.execute(q)
-    variant: Optional[ProductVariant] = r.scalars().one_or_none()
-
-    if not variant:
-        logger.info(
-            "Product variant not found for update",
-            extra={"variant_id": str(variant_id)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Product variant not found"
-        )
-
-    update_data = payload.model_dump(exclude_unset=True)
-
-    # Guard against invalid nullable fields conflicting with DB constraints
-    if "sku" in update_data and update_data["sku"] is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="SKU cannot be null",
-        )
-    if "name" in update_data and update_data["name"] is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Name cannot be null",
-        )
-
-    # Pre-check SKU uniqueness if changing
-    if "sku" in update_data and update_data["sku"] != getattr(variant, "sku", None):
-        existing_q = select(ProductVariant).where(
-            ProductVariant.sku == update_data["sku"],
-            ProductVariant.id != variant_id,
-        )
-        existing_r = await db.execute(existing_q)
-        existing_variant = existing_r.scalars().one_or_none()
-        if existing_variant:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="SKU already exists",
-            )
-
-    for key, value in update_data.items():
-        setattr(variant, key, value)
-
-    try:
-        db.add(variant)
-        await db.commit()
-        await db.refresh(variant)
-    except (IntegrityError, DataError) as e:
-        await db.rollback()
-        logger.debug(
-            "Constraint violation updating product variant",
-            extra={
-                "variant_id": str(variant_id),
-                "payload": payload.model_dump(exclude_unset=True),
-                "error": str(e),
-            },
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Update violates database constraints (e.g., unique SKU, non-negative checks, or enum status)",
-        ) from e
-    except Exception as e:
-        logger.exception(
-            "Failed to update product variant",
-            extra={"variant_id": str(variant_id), "payload": payload.model_dump(exclude_unset=True)},
-        )
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update product variant",
-        ) from e
-
+    service = VariantService(db)
+    variant = await service.update(variant_id=variant_id, payload=payload)
     return ProductVariantResponse.model_validate(variant)
