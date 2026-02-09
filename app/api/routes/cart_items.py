@@ -1,22 +1,14 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Response
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy.exc import IntegrityError, InvalidRequestError
+from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
-from app.models.cart import Cart
-from app.models.cart_item import CartItem
 from app.schemas.cart import CartResponse
 from app.api.dependencies.cart import get_or_create_cart
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
-from app.services.cart import _add_item_to_cart, _update_cart_item
+from app.services.cart import CartService
 from app.api.dependencies.session import get_or_create_session_id
 from app.core.permissions import get_current_user_optional
-from app.core.logs.logging_utils import get_logger
-
-logger = get_logger("app.cart_items")
 
 router = APIRouter(prefix="/cart", tags=["Cart Items"])
 
@@ -35,75 +27,8 @@ async def add_item_to_cart(
     session_id: str = Depends(get_or_create_session_id),
 ):
     cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
-
-    if not cart:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create or retrieve cart",
-        )
-
-    if getattr(cart, "status", None) != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot modify non-active cart",
-        )
-
-    try:
-        await _add_item_to_cart(
-            db=db,
-            variant_id=payload.variant_id,
-            cart=cart,
-            product_id=payload.product_id,
-            quantity=payload.quantity,
-            commit=True,
-        )
-
-        try:
-            _opt = selectinload(Cart.items)
-        except InvalidRequestError:
-            _opt = None
-        stmt = select(Cart).where(Cart.id == cart.id)
-        if _opt is not None:
-            stmt = stmt.options(_opt)
-        res = await db.execute(stmt)
-        refreshed_cart = res.scalars().one_or_none()
-
-        if not refreshed_cart:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart not found after adding item",
-            )
-        cart = refreshed_cart
-    except IntegrityError as ie:
-        logger.debug(
-            "IntegrityError when adding item to cart",
-            extra={"payload": payload.model_dump()},
-        )
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Integrity error when adding item to cart",
-        ) from ie
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        logger.exception(
-            "Failed to add item to cart",
-            extra={"payload": payload.model_dump()},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error when adding item to cart",
-        ) from e
+    service = CartService(db)
+    cart = await service.add_item_to_cart(cart=cart, payload=payload)
 
     response.headers["Location"] = f"/cart/{cart.id}"
     return CartResponse.model_validate(cart)
@@ -123,82 +48,10 @@ async def patch_cart_items(
     session_id: str = Depends(get_or_create_session_id),
 ) -> CartResponse:
     cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
-
-    if not cart:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create or retrieve cart",
-        )
-
-    if getattr(cart, "status", None) != "active":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot modify non-active cart",
-        )
-    try:
-        stmt = select(CartItem).where(
-            CartItem.id == item_id, CartItem.cart_id == cart.id
-        )
-        res = await db.execute(stmt)
-        cart_item = res.scalars().one_or_none()
-
-        if not cart_item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found",
-            )
-
-        # update the item
-        await _update_cart_item(
-            db=db,
-            cart_item=cart_item,
-            quantity=payload.quantity,
-            commit=True,
-        )
-
-        # reload cart
-        try:
-            _opt = selectinload(Cart.items)
-        except InvalidRequestError:
-            _opt = None
-        stmt = select(Cart).where(Cart.id == cart.id)
-        if _opt is not None:
-            stmt = stmt.options(_opt)
-        res = await db.execute(stmt)
-        refreshed_cart = res.scalars().one_or_none()
-
-        if not refreshed_cart:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Cart item not found after update",
-            )
-        cart = refreshed_cart
-    except IntegrityError as ie:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Integrity error when updating cart item",
-        ) from ie
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-        logger.exception(
-            "Failed to update cart item",
-            extra={"item_id": str(item_id), "payload": payload.model_dump()},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error when updating cart item",
-        ) from e
+    service = CartService(db)
+    cart = await service.update_cart_item(
+        cart=cart, item_id=item_id, payload=payload
+    )
 
     return CartResponse.model_validate(cart)
 
@@ -211,18 +64,6 @@ async def delete_cart_item(
     session_id: str = Depends(get_or_create_session_id),
 ):
     cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
-
-    if not cart:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create or retrieve cart",
-        )
-
-    stmt = select(CartItem).where(CartItem.id == item_id, CartItem.cart_id == cart.id)
-    cart_item = (await db.execute(stmt)).scalars().one_or_none()
-    if not cart_item:
-        raise HTTPException(404, "Cart item not found")
-    await db.delete(cart_item)
-    cart.version += 1
-    await db.commit()
+    service = CartService(db)
+    await service.delete_cart_item(cart=cart, item_id=item_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
