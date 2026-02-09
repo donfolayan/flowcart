@@ -34,7 +34,13 @@ async def add_item_to_cart(
     user_id: Optional[UUID] = Depends(get_current_user_optional),
     session_id: str = Depends(get_or_create_session_id),
 ):
-    cart: Cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
+    cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create or retrieve cart",
+        )
 
     if getattr(cart, "status", None) != "active":
         raise HTTPException(
@@ -60,13 +66,14 @@ async def add_item_to_cart(
         if _opt is not None:
             stmt = stmt.options(_opt)
         res = await db.execute(stmt)
-        cart = res.scalars().one_or_none()
+        refreshed_cart = res.scalars().one_or_none()
 
-        if not cart:
+        if not refreshed_cart:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Cart not found after adding item",
             )
+        cart = refreshed_cart
     except IntegrityError as ie:
         logger.debug(
             "IntegrityError when adding item to cart",
@@ -115,7 +122,13 @@ async def patch_cart_items(
     user_id: Optional[UUID] = Depends(get_current_user_optional),
     session_id: str = Depends(get_or_create_session_id),
 ) -> CartResponse:
-    cart: Cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
+    cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create or retrieve cart",
+        )
 
     if getattr(cart, "status", None) != "active":
         raise HTTPException(
@@ -154,13 +167,14 @@ async def patch_cart_items(
         if _opt is not None:
             stmt = stmt.options(_opt)
         res = await db.execute(stmt)
-        cart = res.scalars().one_or_none()
+        refreshed_cart = res.scalars().one_or_none()
 
-        if not cart:
+        if not refreshed_cart:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Cart item not found after update",
             )
+        cart = refreshed_cart
     except IntegrityError as ie:
         try:
             await db.rollback()
@@ -199,6 +213,13 @@ async def delete_cart_item(
     session_id: str = Depends(get_or_create_session_id),
 ):
     cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
+
+    if not cart:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create or retrieve cart",
+        )
+
     stmt = select(CartItem).where(CartItem.id == item_id, CartItem.cart_id == cart.id)
     cart_item = (await db.execute(stmt)).scalars().one_or_none()
     if not cart_item:

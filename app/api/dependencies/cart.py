@@ -58,7 +58,7 @@ async def get_or_create_cart(
     db: AsyncSession,
     user_id: Optional[UUID],
     session_id: str,
-) -> Cart:
+) -> Cart | None:
     """Retrieve existing cart for user/session or create a new one."""
     # `get_current_user_optional` may return a `User` instance or a UUID.
     uid: Optional[User | UUID] = user_id
