@@ -102,6 +102,7 @@ Built with **FastAPI** for high performance, **PostgreSQL** for reliable data pe
 <td width="50%">
 
 **🏗️ Developer Experience**
+- Service layer architecture
 - Async/await throughout
 - Auto-generated OpenAPI docs
 - Database migrations with Alembic
@@ -138,7 +139,7 @@ FlowCart provides a **production-ready foundation** that handles all the common 
 | **Battle-tested auth system** | Secure JWT implementation with refresh tokens, email verification, and password reset |
 | **Stripe integration** | Payment processing with webhook handling—no need to figure out the flow |
 | **Async architecture** | Built for performance from day one with FastAPI and async PostgreSQL |
-| **Clean, modular code** | Easy to understand, extend, and customize for your specific needs |
+| **Service layer pattern** | Clean separation of concerns—routes are thin, business logic is testable |
 | **Docker-ready** | Deploy anywhere with containerization already configured |
 
 ### Who Is This For?
@@ -220,8 +221,13 @@ FlowCart is built with a carefully selected set of modern, production-proven tec
 │                      FastAPI Application                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
 │  │   Routes    │  │   Schemas   │  │       Services          │  │
-│  │  (API v1)   │──│  (Pydantic) │──│   (Business Logic)      │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+│  │  (API v1)   │──│  (Pydantic) │──│  (Business Logic)       │  │
+│  │  Thin       │  │  Validation │  │  UserService            │  │
+│  │  Controllers│  │  DTOs       │  │  CartService            │  │
+│  └─────────────┘  └─────────────┘  │  ProductService         │  │
+│                                     │  OrderService           │  │
+│                                     │  ...                    │  │
+│                                     └─────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                 │
             ┌───────────────────┼───────────────────┐
@@ -236,25 +242,43 @@ FlowCart is built with a carefully selected set of modern, production-proven tec
 
 ## 📁 Project Architecture
 
-FlowCart follows a **clean, modular architecture** that separates concerns and makes the codebase easy to navigate and extend.
+FlowCart follows a **clean, layered architecture** with a dedicated **service layer** that separates business logic from API routes. This makes the codebase easy to navigate, test, and extend.
 
 ```
 flowcart/
 ├── app/                          # Main application package
-│   ├── api/                      # API layer
+│   ├── api/                      # API layer (thin controllers)
 │   │   ├── dependencies/         # Dependency injection (auth, db sessions)
 │   │   ├── routes/               # API route handlers
 │   │   │   ├── auth.py           # Authentication endpoints
 │   │   │   ├── users.py          # User management
-│   │   │   ├── products.py       # Product catalog
-│   │   │   ├── categories.py     # Category management
+│   │   │   ├── product.py        # Product catalog
+│   │   │   ├── category.py       # Category management
 │   │   │   ├── cart.py           # Shopping cart
-│   │   │   ├── orders.py         # Order processing
-│   │   │   ├── payments.py       # Payment handling
-│   │   │   ├── promo_codes.py    # Discount codes
+│   │   │   ├── cart_items.py     # Cart item operations
+│   │   │   ├── order.py          # Order processing
+│   │   │   ├── payment.py        # Payment handling
+│   │   │   ├── promo_code.py     # Discount codes
+│   │   │   ├── variants.py       # Product variants
+│   │   │   ├── address.py        # User addresses
 │   │   │   └── ...
 │   │   ├── middleware.py         # Custom middleware
 │   │   └── exception_handlers.py # Global error handling
+│   │
+│   ├── services/                 # Business logic layer (service classes)
+│   │   ├── user.py               # UserService - user operations
+│   │   ├── auth.py               # AuthService - authentication logic
+│   │   ├── product.py            # ProductService - product CRUD
+│   │   ├── product_media.py      # ProductMediaService - media management
+│   │   ├── category.py           # CategoryService - category operations
+│   │   ├── variant.py            # VariantService - product variants
+│   │   ├── cart.py               # CartService - cart operations
+│   │   ├── order.py              # OrderService - order processing
+│   │   ├── order_state.py        # Order state machine
+│   │   ├── promo.py              # PromoService - promo code logic
+│   │   ├── address.py            # AddressService - address management
+│   │   ├── media.py              # MediaService - file uploads
+│   │   └── payment/              # Payment processing services
 │   │
 │   ├── core/                     # Core functionality
 │   │   ├── config.py             # Application settings
@@ -281,18 +305,19 @@ flowcart/
 │   │   ├── auth.py               # Auth DTOs
 │   │   └── ...
 │   │
-│   ├── services/                 # Business logic layer
-│   │   ├── cart.py               # Cart operations
-│   │   ├── order.py              # Order processing
-│   │   ├── order_state.py        # Order state machine
-│   │   ├── payment/              # Payment processing
-│   │   ├── product.py            # Product operations
-│   │   └── promo.py              # Promo code logic
+│   ├── tests/                    # Test suite (mirrors app structure)
+│   │   └── unit/
+│   │       ├── api/
+│   │       │   ├── routes/       # Route handler tests
+│   │       │   └── dependencies/ # Dependency tests
+│   │       ├── services/         # Service layer tests
+│   │       ├── core/             # Core functionality tests
+│   │       ├── schemas/          # Schema validation tests
+│   │       └── util/             # Utility tests
 │   │
 │   ├── enums/                    # Enumeration types
 │   ├── util/                     # Utility functions
 │   ├── db/                       # Database utilities
-│   ├── tests/                    # Test suite
 │   ├── factory.py                # Application factory
 │   └── main.py                   # Application entry point
 │
@@ -306,15 +331,40 @@ flowcart/
 └── pytest.ini                    # Test configuration
 ```
 
+### Service Layer Architecture
+
+FlowCart uses a **service layer pattern** where all business logic lives in dedicated service classes. Routes are thin controllers that delegate to services:
+
+```python
+# Route (thin controller) - app/api/routes/product.py
+@router.post("/", response_model=ProductResponse)
+async def create_product(payload: ProductCreate, db: AsyncSession = Depends(get_db)):
+    service = ProductService(db)
+    return await service.create(payload)
+
+# Service (business logic) - app/services/product.py
+class ProductService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create(self, payload: ProductCreate) -> Product:
+        # All business logic here
+        product = Product(**payload.model_dump())
+        self.db.add(product)
+        await self.db.commit()
+        return product
+```
+
 ### Design Patterns
 
 | Pattern | Implementation |
 |---------|----------------|
-| **Repository Pattern** | Services abstract database operations from routes |
+| **Service Layer** | Business logic encapsulated in service classes (`UserService`, `CartService`, etc.) |
 | **Dependency Injection** | FastAPI's `Depends()` for auth, DB sessions, permissions |
 | **Factory Pattern** | `factory.py` creates configured app instances |
-| **State Machine** | Order status transitions managed in `order_state.py` |
+| **State Machine** | Order status transitions managed in `OrderStateMachine` |
 | **Provider Pattern** | Pluggable payment, storage, and email providers |
+| **Repository Pattern** | Services abstract database operations from routes |
 
 ---
 
@@ -813,18 +863,35 @@ curl -X POST http://localhost:8000/api/v1/auth/refresh \
 
 ## 🧪 Testing
 
-FlowCart includes a comprehensive test suite using **pytest** with async support.
+FlowCart includes a comprehensive test suite using **pytest** with async support. Tests are organized to **mirror the application structure** for easy navigation.
 
 ### Test Structure
 
 ```
 app/tests/
-├── conftest.py              # Shared fixtures
-└── unit/                    # Unit tests
-    ├── test_api_*.py        # API route tests
-    ├── test_services_*.py   # Service layer tests
-    ├── test_core_*.py       # Core functionality tests
-    └── test_schemas_*.py    # Schema validation tests
+├── conftest.py                    # Shared fixtures
+└── unit/                          # Unit tests
+    ├── api/                       # API layer tests
+    │   ├── routes/                # Route handler tests
+    │   │   ├── test_product_*.py  # Product route tests
+    │   │   ├── test_cart_*.py     # Cart route tests
+    │   │   ├── test_address_*.py  # Address route tests
+    │   │   ├── test_order_*.py    # Order route tests
+    │   │   └── ...
+    │   └── dependencies/          # Dependency tests
+    │       └── test_cart_*.py     # Cart dependency tests
+    ├── services/                  # Service layer tests
+    │   ├── test_cart.py           # CartService tests
+    │   ├── test_product.py        # ProductService tests
+    │   ├── test_order_*.py        # OrderService tests
+    │   ├── test_promo.py          # PromoService tests
+    │   └── ...
+    ├── core/                      # Core functionality tests
+    │   ├── test_jwt.py            # JWT token tests
+    │   ├── test_security.py       # Security tests
+    │   └── test_errors.py         # Error handling tests
+    ├── schemas/                   # Schema validation tests
+    └── util/                      # Utility tests
 ```
 
 ### Running Tests
@@ -836,45 +903,56 @@ uv run pytest
 # Run with verbose output
 uv run pytest -v
 
+# Run specific test directory
+uv run pytest app/tests/unit/services/
+
 # Run specific test file
-uv run pytest app/tests/unit/test_jwt.py
+uv run pytest app/tests/unit/core/test_jwt.py
 
 # Run tests matching a pattern
-uv run pytest -k "test_auth"
+uv run pytest -k "test_cart"
 
 # Run with coverage report
 uv run pytest --cov=app --cov-report=html
 
 # Run with coverage in terminal
 uv run pytest --cov=app --cov-report=term-missing
+
+# Run quick summary
+uv run pytest -q
 ```
 
 ### Test Categories
 
-| Category | Description | Example |
-|----------|-------------|---------|
-| **API Tests** | Test HTTP endpoints | `test_api_product_routes.py` |
-| **Service Tests** | Test business logic | `test_cart_service_unit.py` |
-| **Unit Tests** | Test individual functions | `test_jwt.py`, `test_security.py` |
-| **Schema Tests** | Test data validation | `test_schema_and_model.py` |
+| Category | Location | Description |
+|----------|----------|-------------|
+| **Route Tests** | `unit/api/routes/` | Test HTTP endpoint handlers |
+| **Dependency Tests** | `unit/api/dependencies/` | Test FastAPI dependencies |
+| **Service Tests** | `unit/services/` | Test business logic in service classes |
+| **Core Tests** | `unit/core/` | Test JWT, security, error handling |
+| **Schema Tests** | `unit/schemas/` | Test Pydantic validation |
+| **Utility Tests** | `unit/util/` | Test helper functions |
 
-### Writing Tests
+### Testing Service Layer
 
-Tests use pytest-asyncio for async support:
+Tests mock service classes to isolate route handler testing:
 
 ```python
 import pytest
-from httpx import AsyncClient
+from unittest.mock import AsyncMock, patch
+from app.api.routes import product as product_routes
 
 @pytest.mark.asyncio
-async def test_create_product(client: AsyncClient, auth_headers: dict):
-    response = await client.post(
-        "/api/v1/products",
-        json={"name": "Test Product", "price": 29.99},
-        headers=auth_headers
-    )
-    assert response.status_code == 201
-    assert response.json()["name"] == "Test Product"
+async def test_create_product_success():
+    product = SimpleNamespace(id=uuid4(), name="Test Product")
+    
+    with patch.object(product_routes, "ProductService") as mock_service_class:
+        mock_service = AsyncMock()
+        mock_service.create = AsyncMock(return_value=product)
+        mock_service_class.return_value = mock_service
+
+        result = await product_routes.create_product(payload, db=AsyncMock())
+        assert result.name == "Test Product"
 ```
 
 ### Coverage Goals
@@ -884,6 +962,7 @@ We aim for high test coverage on critical paths:
 - ✅ Payment processing
 - ✅ Order state transitions
 - ✅ Cart operations
+- ✅ Service layer business logic
 
 ---
 
