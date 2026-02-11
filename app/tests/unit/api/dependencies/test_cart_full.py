@@ -89,10 +89,11 @@ async def test_get_cart_or_404_returns_cart(monkeypatch):
             return self
 
     monkeypatch.setattr(cart_dep, "select", DummySelect)
-    fake_cart = SimpleNamespace(id=uuid4())
+    user_id = uuid4()
+    fake_cart = SimpleNamespace(id=uuid4(), user_id=user_id, session_id=None)
     fake_db = FakeDB(execute_results=[DummyRes(fake_cart)])
 
-    res = await cart_dep.get_cart_or_404(fake_cart.id, db=fake_db)  # type: ignore
+    res = await cart_dep.get_cart_or_404(fake_cart.id, db=fake_db, user_id=user_id)  # type: ignore
     assert res is fake_cart
 
 

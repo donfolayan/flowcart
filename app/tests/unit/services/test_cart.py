@@ -28,6 +28,9 @@ class DummyExecuteResult:
     def scalar_one_or_none(self):
         return self._value
 
+    def scalar_one(self):
+        return self._value if self._value is not None else 0
+
 
 class DummyDB:
     def __init__(self, execute_result=None, get_map=None):
@@ -245,12 +248,14 @@ async def test_add_item_existing_updates():
     cart_id = uuid4()
     cart = SimpleNamespace(id=cart_id, version=1)
 
-    product = SimpleNamespace(id=uuid4(), variants=[])
+    product = SimpleNamespace(id=uuid4(), variants=[], base_price=1000, name="Test Product")
     # Sequence of execute results:
     # 1: product select -> product
     # 2: update CartItem returning id -> scalar_one_or_none returns some id (truthy)
     # 3: cart_version update -> returns new version
-    # 4: select CartItem -> returns item
+    # 4: subtotal select -> returns subtotal value
+    # 5: subtotal update -> returns None (update doesn't return)
+    # 6: select CartItem -> returns item
     existing_item = SimpleNamespace(
         id=uuid4(), cart_id=cart_id, product_id=product.id, quantity=5
     )
@@ -259,7 +264,9 @@ async def test_add_item_existing_updates():
             DummyExecuteResult(product),
             DummyExecuteResult(uuid4()),
             DummyExecuteResult(2),
-            DummyExecuteResult([existing_item]),
+            DummyExecuteResult(5000),  # subtotal
+            DummyExecuteResult(None),  # subtotal update
+            DummyExecuteResult(existing_item),  # final select
         ],
         get_map={(cart_service.Cart, cart_id): cart},
     )
@@ -279,7 +286,7 @@ async def test_add_item_existing_updates():
 async def test_add_item_create_new(monkeypatch):
     cart_id = uuid4()
     cart = SimpleNamespace(id=cart_id, version=1)
-    product = SimpleNamespace(id=uuid4(), variants=[])
+    product = SimpleNamespace(id=uuid4(), variants=[], base_price=1000, name="Test Product")
 
     # Sequence: product select, update (no existing item -> None), cart version update -> returns new version
     new_item = SimpleNamespace(
