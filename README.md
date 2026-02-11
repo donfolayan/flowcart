@@ -247,21 +247,23 @@ FlowCart follows a **clean, layered architecture** with a dedicated **service la
 ```
 flowcart/
 ├── app/                          # Main application package
-│   ├── api/                      # API layer (thin controllers)
-│   │   ├── dependencies/         # Dependency injection (auth, db sessions)
-│   │   ├── routes/               # API route handlers
-│   │   │   ├── auth.py           # Authentication endpoints
-│   │   │   ├── users.py          # User management
-│   │   │   ├── product.py        # Product catalog
-│   │   │   ├── category.py       # Category management
-│   │   │   ├── cart.py           # Shopping cart
-│   │   │   ├── cart_items.py     # Cart item operations
-│   │   │   ├── order.py          # Order processing
-│   │   │   ├── payment.py        # Payment handling
-│   │   │   ├── promo_code.py     # Discount codes
-│   │   │   ├── variants.py       # Product variants
-│   │   │   ├── address.py        # User addresses
-│   │   │   └── ...
+│   ├── api/                      # API layer
+│   │   ├── v1/                   # API version 1
+│   │   │   ├── routes/           # Route handlers (thin controllers)
+│   │   │   │   ├── auth.py       # Authentication endpoints
+│   │   │   │   ├── users.py      # User management
+│   │   │   │   ├── product.py    # Product catalog
+│   │   │   │   ├── category.py   # Category management
+│   │   │   │   ├── cart.py       # Shopping cart
+│   │   │   │   ├── cart_items.py # Cart item operations
+│   │   │   │   ├── order.py      # Order processing
+│   │   │   │   ├── payment.py    # Payment handling
+│   │   │   │   ├── promo_code.py # Discount codes
+│   │   │   │   ├── variants.py   # Product variants
+│   │   │   │   ├── address.py    # User addresses
+│   │   │   │   └── ...
+│   │   │   └── router.py         # Aggregates all v1 routes
+│   │   ├── dependencies/         # Shared dependencies (auth, db sessions)
 │   │   ├── middleware.py         # Custom middleware
 │   │   └── exception_handlers.py # Global error handling
 │   │
@@ -336,7 +338,7 @@ flowcart/
 FlowCart uses a **service layer pattern** where all business logic lives in dedicated service classes. Routes are thin controllers that delegate to services:
 
 ```python
-# Route (thin controller) - app/api/routes/product.py
+# Route (thin controller) - app/api/v1/routes/product.py
 @router.post("/", response_model=ProductResponse)
 async def create_product(payload: ProductCreate, db: AsyncSession = Depends(get_db)):
     service = ProductService(db)
@@ -940,7 +942,7 @@ Tests mock service classes to isolate route handler testing:
 ```python
 import pytest
 from unittest.mock import AsyncMock, patch
-from app.api.routes import product as product_routes
+from app.api.v1.routes import product as product_routes
 
 @pytest.mark.asyncio
 async def test_create_product_success():

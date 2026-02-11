@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from fastapi import Response, HTTPException
 
-from app.api.routes import cart_items as cart_routes
+from app.api.v1.routes import cart_items as cart_routes
 from app.schemas.cart_item import CartItemCreate, CartItemUpdate
 
 

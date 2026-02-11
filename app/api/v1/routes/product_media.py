@@ -1,4 +1,3 @@
-# app/api/routes/product_media.py
 from typing import List
 from uuid import UUID
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 from fastapi import HTTPException
 
-from app.api.routes import address as address_routes
+from app.api.v1.routes import address as address_routes
 from app.schemas.address import AddressCreate, AddressUpdate
 
 

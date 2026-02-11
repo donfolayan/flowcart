@@ -3,9 +3,9 @@ def test_import_top_level_modules():
     import importlib
 
     modules = [
-        "app.api.routes.product",
-        "app.api.routes.cart",
-        "app.api.routes.cart_items",
+        "app.api.v1.routes.product",
+        "app.api.v1.routes.cart",
+        "app.api.v1.routes.cart_items",
         "app.services.cart",
         "app.services.product",
         "app.services.product_media",

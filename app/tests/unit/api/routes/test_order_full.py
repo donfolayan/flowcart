@@ -74,7 +74,7 @@ class FakeDB:
 
 @pytest.mark.asyncio
 async def test_create_order_from_cart_success(monkeypatch):
-    from app.api.routes import order as order_routes
+    from app.api.v1.routes import order as order_routes
 
     # stub OrderService
     class StubService:
@@ -111,7 +111,7 @@ async def test_create_order_from_cart_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_preview_order_success(monkeypatch):
-    from app.api.routes import order as order_routes
+    from app.api.v1.routes import order as order_routes
 
     class StubService:
         def __init__(self, db):
@@ -145,7 +145,7 @@ async def test_preview_order_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_order_session_forbidden():
-    from app.api.routes import order as order_routes
+    from app.api.v1.routes import order as order_routes
 
     # Create order with different session
     order = StubOrder(session_id="other-session")
@@ -159,7 +159,7 @@ async def test_get_order_session_forbidden():
 
 @pytest.mark.asyncio
 async def test_cancel_order_success_and_not_found():
-    from app.api.routes import order as order_routes
+    from app.api.v1.routes import order as order_routes
 
     # Not found case
     fake_db_none = FakeDB(execute_result=None)
@@ -178,6 +178,6 @@ async def test_cancel_order_success_and_not_found():
 
 
 def test_import_order_routes():
-    import app.api.routes.order as ord_mod
+    import app.api.v1.routes.order as ord_mod
 
     assert hasattr(ord_mod, "router")

@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from types import SimpleNamespace
 
-from app.api.routes import product as product_routes
+from app.api.v1.routes import product as product_routes
 from app.schemas.product import ProductUpdate
 
 
