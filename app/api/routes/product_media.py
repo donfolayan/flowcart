@@ -13,13 +13,7 @@ from app.schemas.product_media import (
     ProductMediaUpdate,
     ProductMediaResponse,
 )
-from app.services.product_media import (
-    create_product_media,
-    list_product_media,
-    get_product_media,
-    update_product_media,
-    delete_product_media,
-)
+from app.services.product_media import ProductMediaService
 
 logger = get_logger("app.product_media")
 
@@ -34,15 +28,15 @@ async def create_media_association(
     payload: ProductMediaCreate,
     session: AsyncSession = Depends(get_session),
 ) -> ProductMediaResponse:
+    service = ProductMediaService(session)
     try:
-        pm = await create_product_media(
-            session,
+        pm = await service.create(
             product_id=product_id,
             media_id=payload.media_id,
             variant_id=payload.variant_id,
             is_primary=bool(payload.is_primary),
         )
-        return pm
+        return ProductMediaResponse.model_validate(pm)
     except IntegrityError:
         logger.debug(
             "IntegrityError on creating product-media association",
@@ -58,7 +52,8 @@ async def create_media_association(
 async def get_media_for_product(
     product_id: UUID, session: AsyncSession = Depends(get_session)
 ) -> List[ProductMediaResponse]:
-    orm_items = await list_product_media(session, product_id)
+    service = ProductMediaService(session)
+    orm_items = await service.list(product_id)
     return [ProductMediaResponse.model_validate(item) for item in orm_items]
 
 
@@ -68,12 +63,13 @@ async def get_media_assoc(
     pm_id: UUID = Path(..., description="ProductMedia id"),
     session: AsyncSession = Depends(get_session),
 ) -> ProductMediaResponse:
-    pm = await get_product_media(session, pm_id)
+    service = ProductMediaService(session)
+    pm = await service.get(pm_id)
     if not pm or pm.product_id != product_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="ProductMedia not found"
         )
-    return pm
+    return ProductMediaResponse.model_validate(pm)
 
 
 @router.patch("/{pm_id}", response_model=ProductMediaResponse)
@@ -83,20 +79,20 @@ async def patch_media_assoc(
     session: AsyncSession = Depends(get_session),
     pm_id: UUID = Path(..., description="ProductMedia id"),
 ) -> ProductMediaResponse:
-    pm = await get_product_media(session, pm_id)
+    service = ProductMediaService(session)
+    pm = await service.get(pm_id)
     if not pm or pm.product_id != product_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="ProductMedia not found"
         )
 
     try:
-        updated = await update_product_media(
-            session,
+        updated = await service.update(
             pm,
             variant_id=payload.variant_id,
             is_primary=payload.is_primary,
         )
-        return updated
+        return ProductMediaResponse.model_validate(updated)
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -110,11 +106,12 @@ async def delete_media_assoc(
     pm_id: UUID = Path(..., description="ProductMedia id"),
     session: AsyncSession = Depends(get_session),
 ):
-    pm = await get_product_media(session, pm_id)
+    service = ProductMediaService(session)
+    pm = await service.get(pm_id)
     if not pm or pm.product_id != product_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="ProductMedia not found"
         )
 
-    await delete_product_media(session, pm)
+    await service.delete(pm)
     return None

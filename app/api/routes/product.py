@@ -1,14 +1,9 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+from fastapi import APIRouter, Depends, Query, status, Response
 from app.db.session import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from app.schemas.product import ProductResponse, ProductUpdate, ProductCreate
-from app.models.product import Product
-from app.models.product_variant import ProductVariant
-from app.models.product_media import ProductMedia
 from app.core.permissions import require_admin
 from app.core.logs.logging_utils import get_logger
 from app.services.product import ProductService
@@ -36,18 +31,8 @@ async def list_all_products(
     limit: int = Query(50, ge=1, le=250),
     db: AsyncSession = Depends(get_session),
 ) -> List[ProductResponse]:
-    result = await db.execute(
-        select(Product)
-        .options(
-            selectinload(Product.variants)
-            .selectinload(ProductVariant.media_associations)
-            .selectinload(ProductMedia.media),
-        )
-        .offset(skip)
-        .limit(limit)
-        .order_by(Product.created_at.desc())
-    )
-    products = result.scalars().all()
+    service = ProductService(db)
+    products = await service.list(skip=skip, limit=limit)
     return [ProductResponse.model_validate(product) for product in products]
 
 
@@ -60,19 +45,8 @@ async def list_all_products(
 async def get_product_by_id(
     product_id: UUID, db: AsyncSession = Depends(get_session)
 ) -> ProductResponse:
-    q = (
-        select(Product)
-        .where(Product.id == product_id)
-        .options(
-            selectinload(Product.variants)
-            .selectinload(ProductVariant.media_associations)
-            .selectinload(ProductMedia.media)
-        )
-    )
-    result = await db.execute(q)
-    product = result.scalars().first()
-    if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
+    service = ProductService(db)
+    product = await service.get(product_id=product_id)
     return ProductResponse.model_validate(product)
 
 

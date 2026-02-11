@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from fastapi import status
 from app.core.errors import http_error
 
@@ -29,6 +29,7 @@ class PromoService:
             if not promo.percent_basis_points:
                 http_error(
                     "INVALID_PROMO_CONFIGURATION",
+                    
                     "Promo is misconfigured (missing basis points)",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
@@ -148,7 +149,7 @@ class PromoService:
         Raises HTTPException if usage limit has been reached.
         """
         stmt = (
-            PromoCode.__table__.update()
+            update(PromoCode)
             .where(
                 PromoCode.id == promo_id,
                 (PromoCode.usage_limit.is_(None))

@@ -81,6 +81,38 @@ class ProductService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def list(self, skip: int = 0, limit: int = 50) -> List[Product]:
+        """List products with pagination."""
+        result = await self.db.execute(
+            select(Product)
+            .options(
+                selectinload(Product.variants)
+                .selectinload(ProductVariant.media_associations)
+                .selectinload(ProductMedia.media),
+            )
+            .offset(skip)
+            .limit(limit)
+            .order_by(Product.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get(self, product_id: UUID) -> Product:
+        """Get a single product by ID."""
+        q = (
+            select(Product)
+            .where(Product.id == product_id)
+            .options(
+                selectinload(Product.variants)
+                .selectinload(ProductVariant.media_associations)
+                .selectinload(ProductMedia.media)
+            )
+        )
+        result = await self.db.execute(q)
+        product = result.scalars().first()
+        if product is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        return product
+
     async def create(self, payload: ProductCreate) -> Product:
         data = payload.model_dump(exclude_unset=True)
 
