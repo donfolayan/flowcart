@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
-from fastapi import HTTPException, Response
+from fastapi import Response
 from types import SimpleNamespace
 
 from app.api.routes import product as product_routes

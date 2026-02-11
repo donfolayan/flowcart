@@ -50,7 +50,7 @@ async def test_add_item_to_cart_success():
         mock_service.add_item_to_cart = AsyncMock(return_value=cart)
         mock_service_class.return_value = mock_service
 
-        payload = CartItemCreate(product_id=uuid4(), quantity=1)
+        payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
         
         result = await cart_routes.add_item_to_cart(
@@ -79,7 +79,7 @@ async def test_add_item_to_cart_non_active_cart():
         )
         mock_service_class.return_value = mock_service
 
-        payload = CartItemCreate(product_id=uuid4(), quantity=1)
+        payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
         
         with pytest.raises(HTTPException) as exc:
@@ -158,7 +158,7 @@ async def test_add_item_to_cart_integrity_error():
         )
         mock_service_class.return_value = mock_service
 
-        payload = CartItemCreate(product_id=uuid4(), quantity=1)
+        payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
         
         with pytest.raises(HTTPException) as exc:
@@ -187,7 +187,7 @@ async def test_add_item_to_cart_reload_not_found():
         )
         mock_service_class.return_value = mock_service
 
-        payload = CartItemCreate(product_id=uuid4(), quantity=1)
+        payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
         
         with pytest.raises(HTTPException) as exc:

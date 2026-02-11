@@ -40,10 +40,16 @@ async def test_create_address_success():
         mock_service_class.return_value = mock_service
 
         payload = AddressCreate(
+            name=None,
+            company=None,
             line1="123 A St",
+            line2=None,
             city="Townsville",
+            region=None,
             postal_code="11111",
             country="US",
+            phone=None,
+            email=None,
         )
         
         res = await address_routes.create_address(payload, db=AsyncMock())
@@ -60,10 +66,16 @@ async def test_create_address_integrity_error():
         mock_service_class.return_value = mock_service
 
         payload = AddressCreate(
+            name=None,
+            company=None,
             line1="x",
+            line2=None,
             city="X",
+            region=None,
             postal_code="1",
             country="US",
+            phone=None,
+            email=None,
         )
         
         with pytest.raises(HTTPException) as exc:
@@ -107,7 +119,19 @@ async def test_update_address_success():
         mock_service.update = AsyncMock(return_value=address)
         mock_service_class.return_value = mock_service
 
-        payload = AddressUpdate(id=address.id, line1="Updated St")
+        payload = AddressUpdate(
+            id=address.id,
+            name=None,
+            company=None,
+            line1="Updated St",
+            line2=None,
+            city=None,
+            region=None,
+            postal_code=None,
+            country=None,
+            phone=None,
+            email=None,
+        )
         
         res = await address_routes.update_address(address.id, payload, db=AsyncMock())
         assert res.line1 == "Updated St"
@@ -123,7 +147,19 @@ async def test_update_address_not_found():
         )
         mock_service_class.return_value = mock_service
 
-        payload = AddressUpdate(id=address_id, line1="x")
+        payload = AddressUpdate(
+            id=address_id,
+            name=None,
+            company=None,
+            line1="x",
+            line2=None,
+            city=None,
+            region=None,
+            postal_code=None,
+            country=None,
+            phone=None,
+            email=None,
+        )
         
         with pytest.raises(HTTPException) as exc:
             await address_routes.update_address(address_id, payload, db=AsyncMock())
