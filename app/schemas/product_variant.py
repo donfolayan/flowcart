@@ -34,6 +34,7 @@ class ProductVariantResponse(ProductVariantBase):
     )
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProductVariantUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     sku: Optional[str] = Field(

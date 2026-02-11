@@ -27,7 +27,9 @@ async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONRe
     return JSONResponse(status_code=500, content=payload)
 
 
-async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
     """Handle request validation errors."""
     # Cast to RequestValidationError for type safety
     validation_exc = cast(RequestValidationError, exc)
@@ -84,5 +86,7 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all exception handlers on the FastAPI application."""
     app.add_exception_handler(Exception, handle_unhandled_exception)
-    app.add_exception_handler(RequestValidationError, cast(Callable, validation_exception_handler))
+    app.add_exception_handler(
+        RequestValidationError, cast(Callable, validation_exception_handler)
+    )
     app.add_exception_handler(HTTPException, cast(Callable, http_exception_handler))

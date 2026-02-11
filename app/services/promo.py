@@ -29,7 +29,6 @@ class PromoService:
             if not promo.percent_basis_points:
                 http_error(
                     "INVALID_PROMO_CONFIGURATION",
-                    
                     "Promo is misconfigured (missing basis points)",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )

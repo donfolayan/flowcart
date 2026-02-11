@@ -23,16 +23,16 @@ async def send_verification_email(
 ) -> None:
     """
     Send verification email with a magic link.
-    
+
     Args:
         user_email: Recipient email address
         verification_token: The token to include in the verification link
         app_url: Base URL of your application (default: https://yourapp.com)
     """
     import asyncio
-    
+
     verification_link = f"{app_url}/verify-email?token={verification_token}"
-    
+
     message = EmailMessage(
         to=[user_email],
         subject="Verify your email",
@@ -43,7 +43,7 @@ async def send_verification_email(
         <p>This link expires in 24 hours.</p>
         """,
     )
-    
+
     # Run blocking email send in thread pool
     await asyncio.to_thread(send_email, message)
 
@@ -55,26 +55,26 @@ async def send_and_save_verification_email(
 ) -> Tuple[str, datetime]:
     """
     Generate verification token, save to user, send email.
-    
+
     Args:
         user: User model instance
         session: AsyncSession for database
         app_url: Base URL of your application
-        
+
     Returns:
         Tuple of (verification_token, expiry_datetime)
     """
     import logging
-    
+
     logger = logging.getLogger(__name__)
-    
+
     token = generate_verification_token()
     expiry = create_verification_token_expiry(hours=24)
-    
+
     user.verification_token = token
     user.verification_token_expiry = expiry
     await session.commit()
-    
+
     # Try to send email, but don't fail user registration if it does
     try:
         await send_verification_email(user.email, token, app_url)
@@ -84,23 +84,25 @@ async def send_and_save_verification_email(
             exc_info=True,
             extra={"email": user.email, "error": str(e)},
         )
-    
+
     return token, expiry
 
 
-async def send_password_reset_email(user_email: str, token: str, app_url: str = config.FRONTEND_URL) -> None:
+async def send_password_reset_email(
+    user_email: str, token: str, app_url: str = config.FRONTEND_URL
+) -> None:
     """
     Send password reset email with a magic link.
-    
+
     Args:
         user_email: Recipient email address
         token: Password reset token
         app_url: Base URL of your application (default from config)
     """
     import asyncio
-    
+
     reset_link = f"{app_url}/reset-password?token={token}"
-    
+
     message = EmailMessage(
         to=[user_email],
         subject="Reset your password",
@@ -111,6 +113,6 @@ async def send_password_reset_email(user_email: str, token: str, app_url: str = 
         <p>This link expires in 1 hour.</p>
         """,
     )
-    
+
     # Run blocking email send in thread pool
     await asyncio.to_thread(send_email, message)

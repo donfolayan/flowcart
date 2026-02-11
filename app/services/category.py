@@ -24,7 +24,9 @@ class CategoryService:
         q = (
             select(Category)
             .where(Category.id == category_id)
-            .options(selectinload(Category.products), selectinload(Category.category_image))
+            .options(
+                selectinload(Category.products), selectinload(Category.category_image)
+            )
         )
         r = await self.db.execute(q)
         category = r.scalars().one_or_none()
@@ -98,7 +100,10 @@ class CategoryService:
             await self.db.rollback()
             logger.exception(
                 "Failed to update category",
-                extra={"category_id": str(category_id), "payload": payload.model_dump()},
+                extra={
+                    "category_id": str(category_id),
+                    "payload": payload.model_dump(),
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -248,7 +248,9 @@ async def test_add_item_existing_updates():
     cart_id = uuid4()
     cart = SimpleNamespace(id=cart_id, version=1)
 
-    product = SimpleNamespace(id=uuid4(), variants=[], base_price=1000, name="Test Product")
+    product = SimpleNamespace(
+        id=uuid4(), variants=[], base_price=1000, name="Test Product"
+    )
     # Sequence of execute results:
     # 1: product select -> product
     # 2: update CartItem returning id -> scalar_one_or_none returns some id (truthy)
@@ -286,7 +288,9 @@ async def test_add_item_existing_updates():
 async def test_add_item_create_new(monkeypatch):
     cart_id = uuid4()
     cart = SimpleNamespace(id=cart_id, version=1)
-    product = SimpleNamespace(id=uuid4(), variants=[], base_price=1000, name="Test Product")
+    product = SimpleNamespace(
+        id=uuid4(), variants=[], base_price=1000, name="Test Product"
+    )
 
     # Sequence: product select, update (no existing item -> None), cart version update -> returns new version
     new_item = SimpleNamespace(

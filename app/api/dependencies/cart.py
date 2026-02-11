@@ -10,7 +10,6 @@ from app.models.cart import Cart
 from app.services.cart import CartService
 
 
-
 async def get_cart_or_404(
     cart_id: UUID,
     db: AsyncSession,
@@ -27,7 +26,7 @@ async def get_cart_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cart not found",
         )
-    
+
     # Verify ownership: check user_id or session_id
     if user_id:
         if cart.user_id != user_id:
@@ -47,7 +46,7 @@ async def get_cart_or_404(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this cart",
         )
-    
+
     return cart
 
 

@@ -34,22 +34,44 @@ class UserCreate(UserBase):
         if not re.search(r"[!@#$%^&*()_\-+=\[\]{};:'\",.<>/?\\|`~]", v):
             raise ValueError("Password must contain at least one special character")
         return v
-    
+
+
 class UserProfile(BaseModel):
-    first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
-    last_name: Optional[str] = Field(None, max_length=100, description="Last name of the user")
-    phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
-    date_of_birth: Optional[datetime.date] = Field(None, description="Date of birth of the user")
+    first_name: Optional[str] = Field(
+        None, max_length=100, description="First name of the user"
+    )
+    last_name: Optional[str] = Field(
+        None, max_length=100, description="Last name of the user"
+    )
+    phone_number: Optional[str] = Field(
+        None, max_length=20, description="Phone number of the user"
+    )
+    date_of_birth: Optional[datetime.date] = Field(
+        None, description="Date of birth of the user"
+    )
+
 
 class UserUpdate(BaseModel):
-    first_name: Optional[str] = Field(None, max_length=100, description="First name of the user")
-    last_name: Optional[str] = Field(None, max_length=100, description="Last name of the user")
-    phone_number: Optional[str] = Field(None, max_length=20, description="Phone number of the user")
-    date_of_birth: Optional[datetime.datetime] = Field(None, description="Date of birth of the user")
+    first_name: Optional[str] = Field(
+        None, max_length=100, description="First name of the user"
+    )
+    last_name: Optional[str] = Field(
+        None, max_length=100, description="Last name of the user"
+    )
+    phone_number: Optional[str] = Field(
+        None, max_length=20, description="Phone number of the user"
+    )
+    date_of_birth: Optional[datetime.datetime] = Field(
+        None, description="Date of birth of the user"
+    )
     email: Optional[EmailStr] = Field(None, description="Email address of the user")
-    username: Optional[str] = Field(None, max_length=50, description="Username of the user")
-    password: Optional[str] = Field(None, min_length=8, description="Password for the user")
-    
+    username: Optional[str] = Field(
+        None, max_length=50, description="Username of the user"
+    )
+    password: Optional[str] = Field(
+        None, min_length=8, description="Password for the user"
+    )
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -64,7 +86,7 @@ class UserUpdate(BaseModel):
         if not re.search(r"[!@#$%^&*()_\-+=\[\]{};:'\",.<>/?\\|`~]", v):
             raise ValueError("Password must contain at least one special character")
         return v
-        
+
 
 class UserLogin(BaseModel):
     email: Optional[EmailStr] = Field(None, description="Email address of the user")

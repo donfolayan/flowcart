@@ -49,9 +49,7 @@ async def patch_cart_items(
 ) -> CartResponse:
     cart = await get_or_create_cart(db=db, user_id=user_id, session_id=session_id)
     service = CartService(db)
-    cart = await service.update_cart_item(
-        cart=cart, item_id=item_id, payload=payload
-    )
+    cart = await service.update_cart_item(cart=cart, item_id=item_id, payload=payload)
 
     return CartResponse.model_validate(cart)
 

@@ -23,11 +23,11 @@ def create_access_token(data: dict) -> str:
 def create_refresh_token(data: dict, token_id: UUID) -> str:
     """
     Create refresh token with jti (JWT ID) for DB tracking.
-    
+
     Args:
         data: Token payload (must contain 'sub' with user_id)
         token_id: UUID of the RefreshToken record in DB
-    
+
     Returns:
         Encoded JWT refresh token
     """

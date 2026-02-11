@@ -104,7 +104,11 @@ class ProductMediaService:
         except IntegrityError as e:
             logger.debug(
                 "IntegrityError on creating product-media association",
-                extra={"product_id": str(product_id), "media_id": str(media_id), "variant_id": str(variant_id)},
+                extra={
+                    "product_id": str(product_id),
+                    "media_id": str(media_id),
+                    "variant_id": str(variant_id),
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -129,7 +133,8 @@ class ProductMediaService:
                 await self.db.execute(
                     update(ProductMedia)
                     .where(
-                        ProductMedia.product_id == pm.product_id, ProductMedia.is_primary
+                        ProductMedia.product_id == pm.product_id,
+                        ProductMedia.is_primary,
                     )
                     .values(is_primary=False)
                 )
@@ -141,7 +146,11 @@ class ProductMediaService:
         except IntegrityError:
             logger.debug(
                 "IntegrityError on updating product-media association",
-                extra={"pm_id": str(pm.id), "variant_id": str(variant_id), "is_primary": is_primary},
+                extra={
+                    "pm_id": str(pm.id),
+                    "variant_id": str(variant_id),
+                    "is_primary": is_primary,
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -156,12 +165,16 @@ class ProductMediaService:
 
 
 # Backwards compatibility - keep standalone functions that delegate to service
-async def get_product_media(session: AsyncSession, pm_id: UUID) -> Optional[ProductMedia]:
+async def get_product_media(
+    session: AsyncSession, pm_id: UUID
+) -> Optional[ProductMedia]:
     service = ProductMediaService(session)
     return await service.get(pm_id)
 
 
-async def list_product_media(session: AsyncSession, product_id: UUID) -> List[ProductMedia]:
+async def list_product_media(
+    session: AsyncSession, product_id: UUID
+) -> List[ProductMedia]:
     service = ProductMediaService(session)
     return await service.list(product_id)
 

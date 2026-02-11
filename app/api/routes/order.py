@@ -18,7 +18,9 @@ from app.core.logs.logging_utils import get_logger
 logger = get_logger("app.order")
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
-admin_router = APIRouter(prefix="/admin/orders", tags=["Admin Orders"], dependencies=[Depends(require_admin)])
+admin_router = APIRouter(
+    prefix="/admin/orders", tags=["Admin Orders"], dependencies=[Depends(require_admin)]
+)
 
 
 @router.post(
@@ -208,7 +210,11 @@ async def cancel_order(
     except Exception as e:
         logger.exception(
             "Failed to cancel order",
-            extra={"order_id": str(order_id), "user_id": str(user_id) if user_id else None, "session_id": session_id},
+            extra={
+                "order_id": str(order_id),
+                "user_id": str(user_id) if user_id else None,
+                "session_id": session_id,
+            },
         )
         await db.rollback()
         raise HTTPException(
@@ -236,6 +242,7 @@ async def get_all_orders(
 
     return [OrderResponse.model_validate(order) for order in orders]
 
+
 @admin_router.get(
     "/{order_id}",
     response_model=OrderResponse,
@@ -258,6 +265,7 @@ async def admin_get_order(
         )
 
     return OrderResponse.model_validate(order)
+
 
 @admin_router.patch(
     "/{order_id}",
@@ -292,6 +300,7 @@ async def update_order(
     )
 
     return OrderResponse.model_validate(order)
+
 
 @admin_router.delete(
     "/{order_id}",

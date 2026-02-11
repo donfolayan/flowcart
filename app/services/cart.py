@@ -26,7 +26,7 @@ async def _add_item_to_cart(
     max_retries: int = 3,
 ) -> Optional[CartItem]:
     """Add item to cart. If item with same variant_id exists, increments quantity."""
-    #Quantity Check
+    # Quantity Check
     if quantity <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Quantity must be > 0"
@@ -116,14 +116,18 @@ async def _add_item_to_cart(
 
                 # recompute and persist cart subtotal
                 try:
-                    sum_stmt = select(func.coalesce(func.sum(CartItem.line_total), 0)).where(
-                        CartItem.cart_id == cart.id
-                    )
+                    sum_stmt = select(
+                        func.coalesce(func.sum(CartItem.line_total), 0)
+                    ).where(CartItem.cart_id == cart.id)
                     subtotal = (await db.execute(sum_stmt)).scalar_one()
-                    await db.execute(update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal))
+                    await db.execute(
+                        update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal)
+                    )
                     await db.commit()
                 except IntegrityError:
-                    logger.exception("Integrity error persisting cart subtotal after update")
+                    logger.exception(
+                        "Integrity error persisting cart subtotal after update"
+                    )
                 except Exception:
                     logger.exception("Failed to persist cart subtotal after update")
 
@@ -133,7 +137,6 @@ async def _add_item_to_cart(
                 item = q_res.scalars().one_or_none()
                 return item
 
-
             # determine unit price from variant (if present) or product base_price
             unit_price: Optional[Decimal] = None
             chosen_variant = None
@@ -142,7 +145,10 @@ async def _add_item_to_cart(
                     if getattr(v, "id", None) == variant_id:
                         chosen_variant = v
                         break
-                if chosen_variant is not None and getattr(chosen_variant, "price", None) is not None:
+                if (
+                    chosen_variant is not None
+                    and getattr(chosen_variant, "price", None) is not None
+                ):
                     unit_price = Decimal(chosen_variant.price)
             if unit_price is None:
                 base_price = getattr(product, "base_price", None)
@@ -153,7 +159,7 @@ async def _add_item_to_cart(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Price unavailable for product or variant",
                 )
-                
+
             product_snapshot = {
                 "id": str(product.id),
                 "name": product.name,
@@ -203,11 +209,13 @@ async def _add_item_to_cart(
 
             # persist subtotal so Cart.total
             try:
-                sum_stmt = select(func.coalesce(func.sum(CartItem.line_total), 0)).where(
-                    CartItem.cart_id == cart.id
-                )
+                sum_stmt = select(
+                    func.coalesce(func.sum(CartItem.line_total), 0)
+                ).where(CartItem.cart_id == cart.id)
                 subtotal = (await db.execute(sum_stmt)).scalar_one()
-                await db.execute(update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal))
+                await db.execute(
+                    update(Cart).where(Cart.id == cart.id).values(subtotal=subtotal)
+                )
                 await db.commit()
             except Exception:
                 logger.exception("Failed to persist cart subtotal after insert")

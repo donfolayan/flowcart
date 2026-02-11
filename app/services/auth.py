@@ -140,7 +140,9 @@ class AuthService:
             )
 
         device_id = get_device_id(request)
-        _, refresh_token = await self._create_and_store_refresh_token(user.id, device_id)
+        _, refresh_token = await self._create_and_store_refresh_token(
+            user.id, device_id
+        )
 
         access_token = create_access_token({"sub": str(user.id)})
         await self.db.commit()
@@ -231,8 +233,9 @@ class AuthService:
         if user.is_verified:
             return {"message": "Email already verified"}
 
-        if user.verification_token_expiry and user.verification_token_expiry < datetime.now(
-            timezone.utc
+        if (
+            user.verification_token_expiry
+            and user.verification_token_expiry < datetime.now(timezone.utc)
         ):
             logger.info(
                 "Email verification failed - token expired",

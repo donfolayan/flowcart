@@ -110,7 +110,9 @@ class ProductService:
         result = await self.db.execute(q)
         product = result.scalars().first()
         if product is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+            )
         return product
 
     async def create(self, payload: ProductCreate) -> Product:

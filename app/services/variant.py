@@ -37,7 +37,9 @@ class VariantService:
         r = await self.db.execute(q)
         return list(r.scalars().all())
 
-    async def create(self, product_id: UUID, payload: ProductVariantCreate) -> ProductVariant:
+    async def create(
+        self, product_id: UUID, payload: ProductVariantCreate
+    ) -> ProductVariant:
         payload_data = payload.model_dump()
 
         if not payload_data:
@@ -88,7 +90,9 @@ class VariantService:
             )
 
         try:
-            await self.db.execute(delete(ProductVariant).where(ProductVariant.id == variant_id))
+            await self.db.execute(
+                delete(ProductVariant).where(ProductVariant.id == variant_id)
+            )
             await self.db.commit()
         except Exception as e:
             await self.db.rollback()
@@ -102,7 +106,11 @@ class VariantService:
             ) from e
 
     async def delete_by_product(self, product_id: UUID) -> None:
-        q = select(ProductVariant).where(ProductVariant.product_id == product_id).limit(1)
+        q = (
+            select(ProductVariant)
+            .where(ProductVariant.product_id == product_id)
+            .limit(1)
+        )
         r = await self.db.execute(q)
         exists: Optional[ProductVariant] = r.scalars().one_or_none()
 
@@ -113,7 +121,9 @@ class VariantService:
             )
 
         try:
-            query = delete(ProductVariant).where(ProductVariant.product_id == product_id)
+            query = delete(ProductVariant).where(
+                ProductVariant.product_id == product_id
+            )
             await self.db.execute(query)
             await self.db.commit()
         except IntegrityError as e:

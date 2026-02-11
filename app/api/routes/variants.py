@@ -92,6 +92,7 @@ async def delete_product_variants(
     service = VariantService(db)
     await service.delete_by_product(product_id=product_id)
 
+
 @admin_router.patch(
     "/{variant_id}",
     description="Update a product variant",

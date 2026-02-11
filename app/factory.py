@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     # Deferred imports to avoid circular dependencies
     from app.core.registry import register_providers
     from app.db.listeners import register_listeners
-    
+
     logger.info("Starting up Flowcart application")
     register_providers()
     register_listeners()
@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
 
     # Configure rate limiter
     from app.api.routes.auth import limiter
+
     application.state.limiter = limiter
     application.add_exception_handler(
         RateLimitExceeded, cast(Callable, _rate_limit_exceeded_handler)
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
 
     # Register exception handlers
     from app.api.exception_handlers import register_exception_handlers
+
     register_exception_handlers(application)
 
     # Register routes

@@ -29,6 +29,7 @@ admin_router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
+
 @admin_router.post(
     "/upload",
     description="Upload a media file to a storage server and create media record.",

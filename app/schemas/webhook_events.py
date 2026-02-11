@@ -27,5 +27,9 @@ class WebhookEventResponse(WebhookEventBase):
     processed_at: Optional[datetime] = Field(
         None, description="Timestamp when the webhook event was processed"
     )
-    created_at: datetime = Field(..., description="Creation timestamp of the webhook event")
-    updated_at: datetime = Field(..., description="Last update timestamp of the webhook event")
+    created_at: datetime = Field(
+        ..., description="Creation timestamp of the webhook event"
+    )
+    updated_at: datetime = Field(
+        ..., description="Last update timestamp of the webhook event"
+    )

@@ -35,7 +35,9 @@ class UserService:
         res = await self.db.execute(stmt)
         return res.scalars().one_or_none()
 
-    async def update_current_user(self, current_user: User, payload: UserUpdate) -> User:
+    async def update_current_user(
+        self, current_user: User, payload: UserUpdate
+    ) -> User:
         data = payload.model_dump(exclude_unset=True)
         new_email = data.get("email")
         token = None
@@ -57,6 +59,7 @@ class UserService:
 
         if "password" in data:
             from app.core.security import hash_password
+
             current_user.hashed_password = hash_password(data.pop("password"))
 
         allowed_fields = {
@@ -182,6 +185,7 @@ class UserService:
         data = payload.model_dump(exclude_unset=True)
         if "password" in data:
             from app.core.security import hash_password
+
             user.hashed_password = hash_password(data.pop("password"))
         allowed_fields = {
             "username",

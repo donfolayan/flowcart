@@ -41,10 +41,13 @@ def make_cart_item(**kwargs):
 @pytest.mark.asyncio
 async def test_add_item_to_cart_success():
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.add_item_to_cart = AsyncMock(return_value=cart)
@@ -52,7 +55,7 @@ async def test_add_item_to_cart_success():
 
         payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
-        
+
         result = await cart_routes.add_item_to_cart(
             payload=payload,
             response=resp,
@@ -60,7 +63,7 @@ async def test_add_item_to_cart_success():
             user_id=None,
             session_id="test-session",
         )
-        
+
         assert resp.headers.get("Location") == f"/cart/{cart.id}"
         assert result is not None
 
@@ -68,10 +71,13 @@ async def test_add_item_to_cart_success():
 @pytest.mark.asyncio
 async def test_add_item_to_cart_non_active_cart():
     cart = make_cart(status="archived")
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.add_item_to_cart = AsyncMock(
@@ -81,7 +87,7 @@ async def test_add_item_to_cart_non_active_cart():
 
         payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.add_item_to_cart(
                 payload=payload,
@@ -96,10 +102,13 @@ async def test_add_item_to_cart_non_active_cart():
 @pytest.mark.asyncio
 async def test_patch_cart_items_not_found():
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.update_cart_item = AsyncMock(
@@ -108,7 +117,7 @@ async def test_patch_cart_items_not_found():
         mock_service_class.return_value = mock_service
 
         payload = CartItemUpdate(quantity=2)
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.patch_cart_items(
                 item_id=uuid4(),
@@ -123,17 +132,20 @@ async def test_patch_cart_items_not_found():
 @pytest.mark.asyncio
 async def test_patch_cart_items_success():
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.update_cart_item = AsyncMock(return_value=cart)
         mock_service_class.return_value = mock_service
 
         payload = CartItemUpdate(quantity=3)
-        
+
         result = await cart_routes.patch_cart_items(
             item_id=uuid4(),
             payload=payload,
@@ -147,10 +159,13 @@ async def test_patch_cart_items_success():
 @pytest.mark.asyncio
 async def test_add_item_to_cart_integrity_error():
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.add_item_to_cart = AsyncMock(
@@ -160,7 +175,7 @@ async def test_add_item_to_cart_integrity_error():
 
         payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.add_item_to_cart(
                 payload=payload,
@@ -176,10 +191,13 @@ async def test_add_item_to_cart_integrity_error():
 async def test_add_item_to_cart_reload_not_found():
     """Test case when cart reload fails."""
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.add_item_to_cart = AsyncMock(
@@ -189,7 +207,7 @@ async def test_add_item_to_cart_reload_not_found():
 
         payload = CartItemCreate(product_id=uuid4(), variant_id=None, quantity=1)
         resp = Response()
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.add_item_to_cart(
                 payload=payload,
@@ -204,10 +222,13 @@ async def test_add_item_to_cart_reload_not_found():
 @pytest.mark.asyncio
 async def test_patch_cart_items_integrity_error():
     cart = make_cart()
-    
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.update_cart_item = AsyncMock(
@@ -216,7 +237,7 @@ async def test_patch_cart_items_integrity_error():
         mock_service_class.return_value = mock_service
 
         payload = CartItemUpdate(quantity=5)
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.patch_cart_items(
                 item_id=uuid4(),
@@ -231,18 +252,21 @@ async def test_patch_cart_items_integrity_error():
 @pytest.mark.asyncio
 async def test_delete_cart_item_not_found_and_success():
     cart = make_cart()
-    
+
     # Test not found case
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.delete_cart_item = AsyncMock(
             side_effect=HTTPException(status_code=404, detail="Cart item not found")
         )
         mock_service_class.return_value = mock_service
-        
+
         with pytest.raises(HTTPException) as exc:
             await cart_routes.delete_cart_item(
                 item_id=uuid4(),
@@ -251,16 +275,19 @@ async def test_delete_cart_item_not_found_and_success():
                 session_id="test-session",
             )
         assert exc.value.status_code == 404
-    
+
     # Test success case
-    with patch.object(cart_routes, "get_or_create_cart", new_callable=AsyncMock) as mock_get_cart, \
-         patch.object(cart_routes, "CartService") as mock_service_class:
-        
+    with (
+        patch.object(
+            cart_routes, "get_or_create_cart", new_callable=AsyncMock
+        ) as mock_get_cart,
+        patch.object(cart_routes, "CartService") as mock_service_class,
+    ):
         mock_get_cart.return_value = cart
         mock_service = AsyncMock()
         mock_service.delete_cart_item = AsyncMock(return_value=None)
         mock_service_class.return_value = mock_service
-        
+
         # Should not raise
         await cart_routes.delete_cart_item(
             item_id=uuid4(),

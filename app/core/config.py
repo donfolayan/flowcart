@@ -36,18 +36,18 @@ class Config(BaseSettings):
     EMAIL_USE_TLS: bool = True
     EMAIL_USE_SSL: bool = False
     EMAIL_TIMEOUT_SECONDS: int = 10
-    
+
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "console"
     LOG_DIR: str = "logs"
     LOG_FILE_APP: str = "app.log"
     LOG_FILE_DB: str = "db.log"
-    
+
     ENVIRONMENT: str = "development"
-    
+
     SENTRY_DSN: Optional[str] = None
     SENTRY_TRACES_SAMPLE_RATE: float = 0.1
-    
+
     FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(

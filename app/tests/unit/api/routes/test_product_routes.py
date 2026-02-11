@@ -28,7 +28,9 @@ def make_product(**kwargs):
 async def test_get_product_by_id_not_found():
     with patch.object(product_routes, "ProductService") as mock_service_class:
         mock_service = AsyncMock()
-        mock_service.get = AsyncMock(side_effect=HTTPException(status_code=404, detail="Product not found"))
+        mock_service.get = AsyncMock(
+            side_effect=HTTPException(status_code=404, detail="Product not found")
+        )
         mock_service_class.return_value = mock_service
 
         with pytest.raises(HTTPException) as exc:
@@ -39,7 +41,7 @@ async def test_get_product_by_id_not_found():
 @pytest.mark.asyncio
 async def test_get_product_by_id_found():
     product = make_product()
-    
+
     with patch.object(product_routes, "ProductService") as mock_service_class:
         mock_service = AsyncMock()
         mock_service.get = AsyncMock(return_value=product)
@@ -52,7 +54,7 @@ async def test_get_product_by_id_found():
 @pytest.mark.asyncio
 async def test_list_all_products_returns_list():
     products = [make_product(name="Product 1"), make_product(name="Product 2")]
-    
+
     with patch.object(product_routes, "ProductService") as mock_service_class:
         mock_service = AsyncMock()
         mock_service.list = AsyncMock(return_value=products)
@@ -77,7 +79,7 @@ async def test_create_product_missing_base_price_raises():
             {"name": "no-price", "slug": "no-price", "is_variable": False}
         )
         resp = Response()
-        
+
         with pytest.raises(HTTPException) as exc:
             await product_routes.create_product(payload, resp, db=AsyncMock())
         assert exc.value.status_code == 400
@@ -96,7 +98,7 @@ async def test_create_product_variable_active_without_variants_raises():
             {"name": "v", "slug": "v", "is_variable": True, "status": "active"}
         )
         resp = Response()
-        
+
         with pytest.raises(HTTPException) as exc:
             await product_routes.create_product(payload, resp, db=AsyncMock())
         assert exc.value.status_code == 400
@@ -119,7 +121,7 @@ async def test_delete_product_not_found():
 @pytest.mark.asyncio
 async def test_delete_product_success():
     product_id = uuid4()
-    
+
     with patch.object(product_routes, "ProductService") as mock_service_class:
         mock_service = AsyncMock()
         mock_service.delete = AsyncMock(return_value=None)

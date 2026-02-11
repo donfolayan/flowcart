@@ -72,14 +72,17 @@ async def resend_verification_email(
 @limiter.limit("3/minute")
 async def forgot_password(
     request: Request,
-    payload: ForgotPasswordRequest, 
-    db: AsyncSession = Depends(get_session)
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_session),
 ):
     service = AuthService(db)
     return await service.forgot_password(payload=payload, request=request)
 
+
 @router.post("/reset-password")
-async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_session)):
+async def reset_password(
+    payload: ResetPasswordRequest, db: AsyncSession = Depends(get_session)
+):
     service = AuthService(db)
     return await service.reset_password(payload=payload)
 
