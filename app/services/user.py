@@ -7,7 +7,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logs.logging_utils import get_logger
-from app.core.security import hash_password
 from app.models.user import User
 from app.schemas.user import UserUpdate
 from app.util.email import (
@@ -57,6 +56,7 @@ class UserService:
             current_user.verification_token_expiry = expiry
 
         if "password" in data:
+            from app.core.security import hash_password
             current_user.hashed_password = hash_password(data.pop("password"))
 
         allowed_fields = {
@@ -181,6 +181,7 @@ class UserService:
         user = await self.get_user(user_id)
         data = payload.model_dump(exclude_unset=True)
         if "password" in data:
+            from app.core.security import hash_password
             user.hashed_password = hash_password(data.pop("password"))
         allowed_fields = {
             "username",
