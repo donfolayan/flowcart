@@ -9,7 +9,7 @@ from app.models.user import User
 from app.core.security import get_current_user, bearer_scheme
 from app.core.jwt import decode_access_token
 from app.db.session import get_session
-from app.db.user import get_user_by_id
+from app.services.user import UserService
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
@@ -49,5 +49,6 @@ async def get_current_user_optional(
     except Exception:
         return None
 
-    user = await get_user_by_id(db, user_id)
+    service = UserService(db)
+    user = await service.get_by_id(user_id)
     return user

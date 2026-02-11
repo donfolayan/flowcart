@@ -8,7 +8,7 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from passlib.context import CryptContext
 from app.db.session import get_session
-from app.db.user import get_user_by_id
+from app.services.user import UserService
 from app.models.user import User
 from app.core.jwt import decode_access_token
 from app.core.logs.logging_utils import get_logger
@@ -78,7 +78,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 
-    user = await get_user_by_id(db, user_id)
+    service = UserService(db)
+    user = await service.get_by_id(user_id)
 
     if not user:
         raise HTTPException(

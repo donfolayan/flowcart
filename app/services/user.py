@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -23,6 +24,17 @@ class UserService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_by_id(self, user_id: UUID) -> Optional[User]:
+        """Get a user by ID."""
+        result = await self.db.execute(select(User).where(User.id == user_id))
+        return result.scalars().unique().first()
+
+    async def get_by_email(self, email: str) -> Optional[User]:
+        """Get a user by email (case-insensitive)."""
+        stmt = select(User).where(func.lower(User.email) == email.lower())
+        res = await self.db.execute(stmt)
+        return res.scalars().one_or_none()
 
     async def update_current_user(self, current_user: User, payload: UserUpdate) -> User:
         data = payload.model_dump(exclude_unset=True)
